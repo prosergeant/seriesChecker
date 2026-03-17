@@ -243,12 +243,16 @@ function HomeContent() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {isLoading ? (
             <div className="text-center py-8">Загрузка...</div>
-          ) : progress?.length === 0 ? (
+          ) : !Array.isArray(progress) ? (
+            <div className="col-span-full text-center py-8 text-muted-foreground">
+              Ошибка загрузки данных
+            </div>
+          ) : progress.length === 0 ? (
             <div className="col-span-full text-center py-8 text-muted-foreground">
               У вас пока нет сериалов в списке
             </div>
           ) : (
-            progress?.map((item) => (
+            progress.map((item) => (
               <ProgressCard
                 key={item.series_id}
                 item={item}
