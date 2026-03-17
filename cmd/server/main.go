@@ -1,0 +1,119 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prosergeant/seriesChecker/internal/config"
+	"github.com/prosergeant/seriesChecker/internal/database"
+	"github.com/prosergeant/seriesChecker/internal/database/db"
+	"github.com/prosergeant/seriesChecker/internal/handler/auth"
+	"github.com/prosergeant/seriesChecker/internal/middleware"
+	"github.com/prosergeant/seriesChecker/internal/repository"
+	"github.com/prosergeant/seriesChecker/internal/service"
+)
+
+func main() {
+	ctx := context.Background()
+
+	cfg := config.Load()
+
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}))
+	slog.SetDefault(logger)
+
+	dsn := fmt.Sprintf(
+		"postgres://%s:%s@%s:%s/%s?pool_max_conns=%d",
+		cfg.Database.User,
+		cfg.Database.Password,
+		cfg.Database.Host,
+		cfg.Database.Port,
+		cfg.Database.DBName,
+		cfg.Database.PoolSize,
+	)
+
+	dbPool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		logger.Error("failed to create db pool", "error", err)
+		os.Exit(1)
+	}
+	defer dbPool.Close()
+
+	if err := dbPool.Ping(ctx); err != nil {
+		logger.Error("failed to ping database", "error", err)
+		os.Exit(1)
+	}
+
+	queries := db.New(dbPool)
+
+	redisClient, err := database.NewRedis(ctx, cfg.Redis)
+	if err != nil {
+		logger.Error("failed to connect to redis", "error", err)
+		os.Exit(1)
+	}
+	defer redisClient.Close()
+
+	userRepo := repository.NewUserRepository(queries)
+	sessionService := service.NewSessionService(redisClient.Client, cfg.Session.RedisKey, cfg.Session.MaxAge)
+	authService := service.NewAuthService(userRepo, sessionService, cfg.Session)
+
+	authHandler := auth.NewHandler(authService)
+
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("POST /api/auth/register", authHandler.Register)
+	mux.HandleFunc("POST /api/auth/login", authHandler.Login)
+	mux.HandleFunc("POST /api/auth/logout", authHandler.Logout)
+
+	protected := middleware.Auth(sessionService, cfg.Session.CookieName)
+	mux.Handle("GET /api/auth/me", protected(http.HandlerFunc(authHandler.Me)))
+
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"ok"}`))
+	})
+
+	handler := middleware.CORS(
+		middleware.Recovery(
+			middleware.Logger(mux, logger),
+			logger,
+		),
+	)
+
+	server := &http.Server{
+		Addr:         ":" + cfg.Server.Port,
+		Handler:      handler,
+		ReadTimeout:  cfg.Server.ReadTimeout,
+		WriteTimeout: cfg.Server.WriteTimeout,
+	}
+
+	go func() {
+		logger.Info("server starting", "port", cfg.Server.Port)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Error("server error", "error", err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	logger.Info("shutting down server...")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		logger.Error("server forced to shutdown", "error", err)
+	}
+
+	logger.Info("server exited")
+}
