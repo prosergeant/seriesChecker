@@ -15,6 +15,8 @@ import (
 	"github.com/prosergeant/seriesChecker/internal/database"
 	"github.com/prosergeant/seriesChecker/internal/database/db"
 	"github.com/prosergeant/seriesChecker/internal/handler/auth"
+	"github.com/prosergeant/seriesChecker/internal/handler/series"
+	"github.com/prosergeant/seriesChecker/internal/kinopoisk"
 	"github.com/prosergeant/seriesChecker/internal/middleware"
 	"github.com/prosergeant/seriesChecker/internal/repository"
 	"github.com/prosergeant/seriesChecker/internal/service"
@@ -61,11 +63,16 @@ func main() {
 	}
 	defer redisClient.Close()
 
+	kinopoiskClient := kinopoisk.NewClient(cfg.Kinopoisk.APIKey)
+
 	userRepo := repository.NewUserRepository(queries)
+	seriesRepo := repository.NewSeriesRepository(queries)
 	sessionService := service.NewSessionService(redisClient.Client, cfg.Session.RedisKey, cfg.Session.MaxAge)
 	authService := service.NewAuthService(userRepo, sessionService, cfg.Session)
+	seriesService := service.NewSeriesService(seriesRepo, kinopoiskClient)
 
 	authHandler := auth.NewHandler(authService)
+	seriesHandler := series.NewHandler(seriesService)
 
 	mux := http.NewServeMux()
 
@@ -75,6 +82,9 @@ func main() {
 
 	protected := middleware.Auth(sessionService, cfg.Session.CookieName)
 	mux.Handle("GET /api/auth/me", protected(http.HandlerFunc(authHandler.Me)))
+
+	mux.HandleFunc("GET /api/series/search", seriesHandler.Search)
+	mux.HandleFunc("GET /api/series/{id}", seriesHandler.GetByID)
 
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
