@@ -100,6 +100,21 @@ func (s *AuthService) GetUserBySession(ctx context.Context, sessionID uuid.UUID)
 	}, nil
 }
 
+func (s *AuthService) GetUserByID(ctx context.Context, userID uuid.UUID) (*model.User, error) {
+	user, err := s.userRepo.GetByID(ctx, pgtype.UUID{Bytes: userID, Valid: true})
+	if err != nil {
+		return nil, ErrUserNotFound
+	}
+
+	return &model.User{
+		ID:           user.ID.Bytes,
+		Email:        user.Email,
+		PasswordHash: user.PasswordHash,
+		CreatedAt:    user.CreatedAt.Time,
+		UpdatedAt:    user.UpdatedAt.Time,
+	}, nil
+}
+
 func (s *AuthService) GetConfig() config.SessionConfig {
 	return s.cfg
 }
