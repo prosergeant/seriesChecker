@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/prosergeant/seriesChecker/internal/middleware"
 	"github.com/prosergeant/seriesChecker/internal/service"
 )
 
@@ -103,6 +104,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cfg := h.authService.GetConfig()
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     cfg.CookieName,
 		Value:    sessionID.String(),
@@ -113,7 +115,8 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	})
 
 	json.NewEncoder(w).Encode(map[string]string{
-		"message": "logged in",
+		"message":    "logged in",
+		"session_id": sessionID.String(),
 	})
 }
 
@@ -153,14 +156,14 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, ok := r.Context().Value("user_id").(uuid.UUID)
+	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(ErrorResponse{Error: "unauthorized"})
 		return
 	}
 
-	user, err := h.authService.GetUserBySession(r.Context(), userID)
+	user, err := h.authService.GetUserByID(r.Context(), userID)
 	if err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(ErrorResponse{Error: "unauthorized"})

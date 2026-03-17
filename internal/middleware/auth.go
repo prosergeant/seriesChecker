@@ -34,8 +34,7 @@ func Auth(sessionService *service.SessionService, cookieName string) func(http.H
 				return
 			}
 
-			ctx := r.Context()
-			ctx = WithUserID(ctx, userID)
+			ctx := context.WithValue(r.Context(), UserIDKey, userID.String())
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -48,6 +47,17 @@ func WithUserID(ctx context.Context, userID uuid.UUID) context.Context {
 }
 
 func GetUserID(ctx context.Context) (uuid.UUID, bool) {
-	userID, ok := ctx.Value(contextKey(UserIDKey)).(uuid.UUID)
+	userIDStr, ok := ctx.Value(UserIDKey).(string)
+
+	if !ok {
+		return uuid.Nil, ok
+	}
+
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return uuid.Nil, ok
+
+	}
+
 	return userID, ok
 }
