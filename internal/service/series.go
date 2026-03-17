@@ -24,7 +24,7 @@ func NewSeriesService(seriesRepo *repository.SeriesRepository, kinopoiskClient *
 }
 
 type SeriesSearchResult struct {
-	ID             int    `json:"id"`
+	ID            int    `json:"id"`
 	KinopoiskID   int    `json:"kinopoisk_id"`
 	Title         string `json:"title"`
 	OriginalTitle string `json:"original_title,omitempty"`
@@ -44,9 +44,9 @@ func (s *SeriesService) Search(ctx context.Context, query string) ([]SeriesSearc
 	results := make([]SeriesSearchResult, 0, len(films))
 	for _, f := range films {
 		results = append(results, SeriesSearchResult{
-			ID:            f.KinopoiskID,
-			KinopoiskID:  f.KinopoiskID,
-			Title:        f.NameRU,
+			ID:            f.GetKinopoiskID(),
+			KinopoiskID:   f.GetKinopoiskID(),
+			Title:         f.NameRU,
 			OriginalTitle: f.NameEN,
 			PosterURL:     f.PosterURLPreview,
 			Year:          parseYear(f.Year),
@@ -65,7 +65,7 @@ func (s *SeriesService) GetByID(ctx context.Context, kinopoiskID int) (*SeriesSe
 	existing, err := s.seriesRepo.GetByKinopoiskID(ctx, int32(kinopoiskID))
 	if err == nil && existing.KinopoiskID > 0 {
 		return &SeriesSearchResult{
-			ID:             int(existing.KinopoiskID),
+			ID:            int(existing.KinopoiskID),
 			KinopoiskID:   int(existing.KinopoiskID),
 			Title:         existing.Title,
 			OriginalTitle: existing.OriginalTitle.String,
@@ -77,7 +77,7 @@ func (s *SeriesService) GetByID(ctx context.Context, kinopoiskID int) (*SeriesSe
 	}
 
 	return &SeriesSearchResult{
-		ID:             film.KinopoiskID,
+		ID:            film.KinopoiskID,
 		KinopoiskID:   film.KinopoiskID,
 		Title:         film.NameRU,
 		OriginalTitle: film.NameEN,

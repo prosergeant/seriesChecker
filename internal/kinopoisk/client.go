@@ -28,12 +28,16 @@ type SearchResponse struct {
 }
 
 type Film struct {
-	KinopoiskID int    `json:"kinopoiskId"`
+	FilmID int `json:"filmId"`
 	NameRU      string `json:"nameRu"`
 	NameEN     string `json:"nameEn"`
 	Year       string `json:"year"`
 	PosterURL  string `json:"posterUrl"`
 	PosterURLPreview string `json:"posterUrlPreview"`
+}
+
+func (f *Film) GetKinopoiskID() int {
+	return f.FilmID
 }
 
 func (c *Client) Search(ctx context.Context, query string) ([]Film, error) {
