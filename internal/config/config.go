@@ -3,6 +3,8 @@ package config
 import (
 	"os"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -46,6 +48,8 @@ type KinopoiskConfig struct {
 }
 
 func Load() *Config {
+	godotenv.Load()
+
 	return &Config{
 		Server: ServerConfig{
 			Port:         getEnv("SERVER_PORT", "8080"),
