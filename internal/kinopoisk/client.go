@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -41,7 +42,8 @@ func (f *Film) GetKinopoiskID() int {
 }
 
 func (c *Client) Search(ctx context.Context, query string) ([]Film, error) {
-	url := fmt.Sprintf("https://kinopoiskapiunofficial.tech/api/v2.1/films/search-by-keyword?keyword=%s&page=1", query)
+	encodedQuery := url.QueryEscape(query)
+	url := fmt.Sprintf("https://kinopoiskapiunofficial.tech/api/v2.1/films/search-by-keyword?keyword=%s&page=1", encodedQuery)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
