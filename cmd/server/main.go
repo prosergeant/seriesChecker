@@ -15,6 +15,7 @@ import (
 	"github.com/prosergeant/seriesChecker/internal/database"
 	"github.com/prosergeant/seriesChecker/internal/database/db"
 	"github.com/prosergeant/seriesChecker/internal/handler/auth"
+	"github.com/prosergeant/seriesChecker/internal/handler/progress"
 	"github.com/prosergeant/seriesChecker/internal/handler/series"
 	"github.com/prosergeant/seriesChecker/internal/kinopoisk"
 	"github.com/prosergeant/seriesChecker/internal/middleware"
@@ -67,12 +68,19 @@ func main() {
 
 	userRepo := repository.NewUserRepository(queries)
 	seriesRepo := repository.NewSeriesRepository(queries)
+	progressRepo := repository.NewUserProgressRepository(queries)
+	// работает с редисом
 	sessionService := service.NewSessionService(redisClient.Client, cfg.Session.RedisKey, cfg.Session.MaxAge)
+	// работает с репозиторием пользователя и сессий
 	authService := service.NewAuthService(userRepo, sessionService, cfg.Session)
+	// работает с клиентом кинопоиска и репозиторием серий
 	seriesService := service.NewSeriesService(seriesRepo, kinopoiskClient)
+	// работает с репозиторием прогресса
+	progressService := service.NewProgressService(progressRepo, seriesRepo)
 
 	authHandler := auth.NewHandler(authService)
 	seriesHandler := series.NewHandler(seriesService)
+	progressHandler := progress.NewHandler(progressService)
 
 	mux := http.NewServeMux()
 
@@ -85,6 +93,10 @@ func main() {
 
 	mux.HandleFunc("GET /api/series/search", seriesHandler.Search)
 	mux.HandleFunc("GET /api/series/{id}", seriesHandler.GetByID)
+
+	mux.Handle("GET /api/progress", protected(http.HandlerFunc(progressHandler.GetList)))
+	mux.Handle("POST /api/progress", protected(http.HandlerFunc(progressHandler.Update)))
+	mux.Handle("DELETE /api/progress/{seriesId}", protected(http.HandlerFunc(progressHandler.Delete)))
 
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

@@ -76,7 +76,7 @@ func (s *SeriesService) GetByID(ctx context.Context, kinopoiskID int) (*SeriesSe
 		}, nil
 	}
 
-	return &SeriesSearchResult{
+	result := SeriesSearchResult{
 		ID:            film.KinopoiskID,
 		KinopoiskID:   film.KinopoiskID,
 		Title:         film.NameRU,
@@ -85,7 +85,11 @@ func (s *SeriesService) GetByID(ctx context.Context, kinopoiskID int) (*SeriesSe
 		Year:          film.Year,
 		Description:   film.Description,
 		TotalSeasons:  film.TotalSeries,
-	}, nil
+	}
+
+	s.SaveToDB(ctx, result)
+
+	return &result, nil
 }
 
 func (s *SeriesService) SaveToDB(ctx context.Context, params SeriesSearchResult) error {
