@@ -2,12 +2,15 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { api, ProgressItem, SeriesSearchResult, UpdateProgressRequest } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Play, Plus, Trash2, Check, Eye, Clock, X } from 'lucide-react';
+import { Search, Play, Plus, Trash2, Check, Eye, Clock, X, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '@/components/auth-context';
+import { ProtectedRoute } from '@/components/protected-route';
 
 const STATUS_LABELS: Record<string, { label: string; icon: React.ReactNode }> = {
   watching: { label: 'Смотрю', icon: <Eye className="w-4 h-4" /> },
@@ -120,11 +123,13 @@ function ProgressCard({ item, onUpdate, onDelete }: {
   );
 }
 
-export default function Home() {
+function HomeContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSeries, setSelectedSeries] = useState<SeriesSearchResult | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const queryClient = useQueryClient();
+  const { user, logout } = useAuth();
+  const router = useRouter();
 
   const { data: progress, isLoading } = useQuery({
     queryKey: ['progress', statusFilter],
@@ -166,6 +171,11 @@ export default function Home() {
     },
   });
 
+  const handleLogout = async () => {
+    await logout();
+    router.push('/login');
+  };
+
   const handleSelectSeries = (series: SeriesSearchResult) => {
     setSelectedSeries(series);
     addMutation.mutate(series);
@@ -174,8 +184,15 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b">
-        <div className="container mx-auto px-4 py-4">
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold">SeriesTracker</h1>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-muted-foreground">{user?.email}</span>
+            <Button variant="outline" size="sm" onClick={handleLogout}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Выйти
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -243,5 +260,13 @@ export default function Home() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <ProtectedRoute>
+      <HomeContent />
+    </ProtectedRoute>
   );
 }
