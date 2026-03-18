@@ -75,59 +75,95 @@ function ProgressCard({ item, onUpdate, onDelete }: {
   }
 
   return (
-    <Card className="flex flex-row overflow-hidden">
+    <div className="bg-white rounded-2xl flex flex-row overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
       {item.poster_url && (
-        <img src={item.poster_url} alt={item.title} className="w-24 h-36 object-cover" />
+        <div className="w-[100px] md:w-[120px] flex-shrink-0">
+          <img 
+            src={item.poster_url} 
+            alt={item.title} 
+            className="w-full h-full object-cover"
+            style={{ minHeight: '100%' }}
+          />
+        </div>
       )}
-      <div className="flex-1 p-4">
-        <div className="flex justify-between items-start">
-          <div>
-            <h3 className="font-semibold">{item.title}</h3>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-sm text-muted-foreground flex items-center gap-1">
-                {statusInfo.icon}
-                {statusInfo.label}
-              </span>
-            </div>
-          </div>
-          <Button variant="ghost" size="icon" onClick={onDelete}>
-            <Trash2 className="w-4 h-4" />
-          </Button>
+      <div className="flex-1 p-4 sm:p-5 flex flex-col gap-3 min-w-0">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <h3 className="text-lg sm:text-xl font-semibold text-gray-800 tracking-tight truncate pr-2">
+            {item.title}
+          </h3>
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200 whitespace-nowrap">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span>
+            {statusInfo.label}
+          </span>
         </div>
 
-        {isEditing ? (
-          <div className="mt-3 flex gap-2 items-center">
-            <Input
-              type="number"
-              value={season}
-              onChange={(e) => setSeason(parseInt(e.target.value) || 1)}
-              className="w-16"
-              min={1}
-            />
-            <span>сезон</span>
-            <Input
-              type="number"
-              value={episode}
-              onChange={(e) => setEpisode(parseInt(e.target.value) || 0)}
-              className="w-16"
-              min={0}
-            />
-            <span>эпизод</span>
-            <Button size="sm" onClick={handleSave}>Сохранить</Button>
-          </div>
-        ) : (
-          <div className="mt-3 flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
-              {item.current_season} сезон, {item.current_episode} эпизод
-            </Button>
-          </div>
-        )}
-
-        <Button className="mt-3" variant="outline" size="sm" onClick={goToPreview}>
-          Просмотр
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {isEditing ? (
+            <>
+              <input
+                type="number"
+                value={season}
+                onChange={(e) => setSeason(Math.max(1, parseInt(e.target.value) || 1))}
+                className="w-12 h-8 text-center border rounded-lg text-sm"
+                min={1}
+              />
+              <span className="text-sm text-gray-600">сезон</span>
+              <input
+                type="number"
+                value={episode}
+                onChange={(e) => setEpisode(Math.max(0, parseInt(e.target.value) || 0))}
+                className="w-12 h-8 text-center border rounded-lg text-sm"
+                min={0}
+              />
+              <span className="text-sm text-gray-600">эпизод</span>
+              <button
+                onClick={handleSave}
+                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-full"
+              >
+                Сохранить
+              </button>
+              <button
+                onClick={() => setIsEditing(false)}
+                className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-full"
+              >
+                X
+              </button>
+            </>
+          ) : (
+            <>
+              <button 
+                onClick={() => setIsEditing(true)}
+                className="inline-flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 text-sm font-medium px-3 py-1.5 rounded-full transition-colors border border-gray-200"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+                <span>{item.current_season} сезон · {item.current_episode} серия</span>
+              </button>
+              <a 
+                href="#" 
+                onClick={(e) => { e.preventDefault(); goToPreview(); }}
+                className="inline-flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-medium px-3 py-1.5 rounded-full transition-colors border border-indigo-200"
+              >
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z"/>
+                </svg>
+                Смотреть
+              </a>
+            </>
+          )}
+          <button 
+            onClick={onDelete}
+            className="ml-auto inline-flex items-center justify-center text-gray-400 hover:text-red-500 bg-transparent hover:bg-red-50 p-2 rounded-full transition-colors"
+            title="Удалить"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        </div>
       </div>
-    </Card>
+    </div>
   );
 }
 
@@ -248,7 +284,7 @@ function HomeContent() {
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 grid-cols-2">
           {isLoading ? (
             <div className="text-center py-8">Загрузка...</div>
           ) : !Array.isArray(progress) ? (
