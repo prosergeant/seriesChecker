@@ -32,9 +32,15 @@ RUN apk add --no-cache ca-certificates postgresql-client bash
 
 WORKDIR /app
 
+# Copy backend
 COPY --from=backend-builder /app/server .
 COPY --from=backend-builder /app/migrations ./migrations
 COPY scripts/entrypoint.sh .
+
+# Copy Next.js standalone
+COPY --from=frontend-builder /app/frontend/.next/standalone ./
+COPY --from=frontend-builder /app/frontend/.next/static ./.next/static
+COPY --from=frontend-builder /app/frontend/public ./public
 
 RUN chmod +x entrypoint.sh
 

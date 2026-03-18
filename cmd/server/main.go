@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"os/signal"
-	"path/filepath"
-	"strings"
 	"syscall"
 	"time"
 
@@ -24,6 +24,8 @@ import (
 	"github.com/prosergeant/seriesChecker/internal/repository"
 	"github.com/prosergeant/seriesChecker/internal/service"
 )
+
+const nextJSURL = "http://localhost:3000"
 
 func main() {
 	ctx := context.Background()
@@ -113,23 +115,17 @@ func main() {
 		cfg.AllowedOrigins,
 	)
 
-	http.HandleFunc("/_next/", func(w http.ResponseWriter, r *http.Request) {
-		file := strings.TrimPrefix(r.URL.Path, "/_next/")
-		file = filepath.Join(".", "web", ".next", "static", file)
-		http.ServeFile(w, r, file)
-	})
+	nextProxy, err := url.Parse(nextJSURL)
+	if err != nil {
+		logger.Error("failed to parse next.js url", "error", err)
+		os.Exit(1)
+	}
 
-	http.HandleFunc("/public/", func(w http.ResponseWriter, r *http.Request) {
-		file := strings.TrimPrefix(r.URL.Path, "/public/")
-		file = filepath.Join(".", "web", "public", file)
-		http.ServeFile(w, r, file)
-	})
+	proxy := httputil.NewSingleHostReverseProxy(nextProxy)
 
-	http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, filepath.Join(".", "web", "public", "favicon.ico"))
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		proxy.ServeHTTP(w, r)
 	})
-
-	http.Handle("/", mux)
 
 	server := &http.Server{
 		Addr:         ":" + cfg.Server.Port,

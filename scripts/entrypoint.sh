@@ -1,6 +1,25 @@
 #!/bin/sh
 set -e
 
+# Handle shutdown signals
+shutdown() {
+    echo "Received shutdown signal, stopping services..."
+    
+    # Stop Go server (it will be PID 1, so this will terminate the container)
+    if [ -n "$SERVER_PID" ]; then
+        kill -TERM $SERVER_PID 2>/dev/null || true
+    fi
+    
+    # Stop Next.js
+    if [ -n "$NEXT_PID" ]; then
+        kill -TERM $NEXT_PID 2>/dev/null || true
+    fi
+    
+    exit 0
+}
+
+trap shutdown TERM INT
+
 echo "Waiting for PostgreSQL..."
 max_attempts=30
 attempt=0
@@ -43,5 +62,18 @@ for migration in /app/migrations/*.sql; do
     fi
 done
 
-echo "Starting server..."
-exec /app/server
+echo "Starting Next.js server on port 3000..."
+node .next/standalone/server.js &
+NEXT_PID=$!
+
+# Wait for Next.js to start
+sleep 3
+
+echo "Starting Go server on port 8080..."
+/app/server &
+SERVER_PID=$!
+
+echo "All services started. Next.js PID: $NEXT_PID, Server PID: $SERVER_PID"
+
+# Wait for any process to exit
+wait $SERVER_PID $NEXT_PID

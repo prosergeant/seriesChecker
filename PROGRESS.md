@@ -57,9 +57,21 @@
 
 ### 7. Deployment
 - [x] Dockerfile с multi-stage build
-- [x] entrypoint.sh с автоматическими миграциями
+- [x] Next.js standalone mode
+- [x] entrypoint.sh с двумя процессами (Go + Next.js)
+- [x] Go проксирует / на Next.js
+- [x] Graceful shutdown для обоих процессов
 - [x] .env.example с переменными для Render
 - [x] .gitignore настроен
+
+### Deployment архитектура
+```
+Render Container
+├── Next.js (port 3000) - Фронтенд
+└── Go Server (port 8080) - API бэкенд
+    └── / → прокси на Next.js
+    └── /api/* → API handlers
+```
 
 ---
 

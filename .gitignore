@@ -7,6 +7,10 @@
 bin/
 *.exe
 
+# Next.js standalone (generated at build time)
+web/.next/standalone/
+web/.next/static/
+
 # IDE
 .idea/
 .vscode/
