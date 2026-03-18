@@ -32,6 +32,7 @@ type ProgressResult struct {
 	CurrentSeason  int    `json:"current_season"`
 	CurrentEpisode int    `json:"current_episode"`
 	Status         string `json:"status"`
+	IsSerial       bool   `json:"is_serial"`
 }
 
 func (s *ProgressService) GetListByStatus(ctx context.Context, userID uuid.UUID, status string) ([]ProgressResult, error) {
@@ -53,6 +54,7 @@ func (s *ProgressService) GetListByStatus(ctx context.Context, userID uuid.UUID,
 				CurrentSeason:  int(r.CurrentSeason),
 				CurrentEpisode: int(r.CurrentEpisode),
 				Status:         r.Status,
+				IsSerial:       r.IsSerial.Bool,
 			}
 		}
 	} else {
@@ -71,6 +73,7 @@ func (s *ProgressService) GetListByStatus(ctx context.Context, userID uuid.UUID,
 				CurrentSeason:  int(r.CurrentSeason),
 				CurrentEpisode: int(r.CurrentEpisode),
 				Status:         r.Status,
+				IsSerial:       r.IsSerial.Bool,
 			}
 		}
 	}

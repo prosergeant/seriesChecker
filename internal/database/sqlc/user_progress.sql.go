@@ -64,7 +64,7 @@ func (q *Queries) DeleteUserProgress(ctx context.Context, arg DeleteUserProgress
 
 const getAllUserProgress = `-- name: GetAllUserProgress :many
 SELECT up.id, up.user_id, up.series_id, up.current_season, up.current_episode, up.status, up.created_at, up.updated_at,
-       s.id as s_id, s.kinopoisk_id, s.title, s.original_title, s.poster_url, s.year, s.description, s.total_episodes, s.total_seasons
+       s.id as s_id, s.kinopoisk_id, s.title, s.original_title, s.poster_url, s.year, s.description, s.total_episodes, s.total_seasons, s.is_serial
 FROM user_progress up
 JOIN series s ON up.series_id = s.id
 WHERE up.user_id = $1
@@ -89,6 +89,7 @@ type GetAllUserProgressRow struct {
 	Description    pgtype.Text      `json:"description"`
 	TotalEpisodes  pgtype.Int4      `json:"total_episodes"`
 	TotalSeasons   pgtype.Int4      `json:"total_seasons"`
+	IsSerial       pgtype.Bool      `json:"is_serial"`
 }
 
 func (q *Queries) GetAllUserProgress(ctx context.Context, userID pgtype.UUID) ([]GetAllUserProgressRow, error) {
@@ -118,6 +119,7 @@ func (q *Queries) GetAllUserProgress(ctx context.Context, userID pgtype.UUID) ([
 			&i.Description,
 			&i.TotalEpisodes,
 			&i.TotalSeasons,
+			&i.IsSerial,
 		); err != nil {
 			return nil, err
 		}
@@ -158,7 +160,7 @@ func (q *Queries) GetUserProgress(ctx context.Context, arg GetUserProgressParams
 
 const getUserProgressList = `-- name: GetUserProgressList :many
 SELECT up.id, up.user_id, up.series_id, up.current_season, up.current_episode, up.status, up.created_at, up.updated_at,
-       s.id as s_id, s.kinopoisk_id, s.title, s.original_title, s.poster_url, s.year, s.description, s.total_episodes, s.total_seasons
+       s.id as s_id, s.kinopoisk_id, s.title, s.original_title, s.poster_url, s.year, s.description, s.total_episodes, s.total_seasons, s.is_serial
 FROM user_progress up
 JOIN series s ON up.series_id = s.id
 WHERE up.user_id = $1 AND up.status = $2
@@ -188,6 +190,7 @@ type GetUserProgressListRow struct {
 	Description    pgtype.Text      `json:"description"`
 	TotalEpisodes  pgtype.Int4      `json:"total_episodes"`
 	TotalSeasons   pgtype.Int4      `json:"total_seasons"`
+	IsSerial       pgtype.Bool      `json:"is_serial"`
 }
 
 func (q *Queries) GetUserProgressList(ctx context.Context, arg GetUserProgressListParams) ([]GetUserProgressListRow, error) {
@@ -217,6 +220,7 @@ func (q *Queries) GetUserProgressList(ctx context.Context, arg GetUserProgressLi
 			&i.Description,
 			&i.TotalEpisodes,
 			&i.TotalSeasons,
+			&i.IsSerial,
 		); err != nil {
 			return nil, err
 		}
