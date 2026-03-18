@@ -4,15 +4,15 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/prosergeant/seriesChecker/internal/database/db"
+	"github.com/prosergeant/seriesChecker/internal/database/sqlc"
 )
 
 type UserProgressRepository struct {
-	db *db.Queries
+	sqlc *sqlc.Queries
 }
 
-func NewUserProgressRepository(queries *db.Queries) *UserProgressRepository {
-	return &UserProgressRepository{db: queries}
+func NewUserProgressRepository(queries *sqlc.Queries) *UserProgressRepository {
+	return &UserProgressRepository{sqlc: queries}
 }
 
 type CreateProgressParams struct {
@@ -31,26 +31,26 @@ type UpdateProgressParams struct {
 	Status         string
 }
 
-func (r *UserProgressRepository) Get(ctx context.Context, userID, seriesID pgtype.UUID) (db.UserProgress, error) {
-	return r.db.GetUserProgress(ctx, db.GetUserProgressParams{
+func (r *UserProgressRepository) Get(ctx context.Context, userID, seriesID pgtype.UUID) (sqlc.UserProgress, error) {
+	return r.sqlc.GetUserProgress(ctx, sqlc.GetUserProgressParams{
 		UserID:   userID,
 		SeriesID: seriesID,
 	})
 }
 
-func (r *UserProgressRepository) GetListByStatus(ctx context.Context, userID pgtype.UUID, status string) ([]db.GetUserProgressListRow, error) {
-	return r.db.GetUserProgressList(ctx, db.GetUserProgressListParams{
+func (r *UserProgressRepository) GetListByStatus(ctx context.Context, userID pgtype.UUID, status string) ([]sqlc.GetUserProgressListRow, error) {
+	return r.sqlc.GetUserProgressList(ctx, sqlc.GetUserProgressListParams{
 		UserID: userID,
 		Status: status,
 	})
 }
 
-func (r *UserProgressRepository) GetAll(ctx context.Context, userID pgtype.UUID) ([]db.GetAllUserProgressRow, error) {
-	return r.db.GetAllUserProgress(ctx, userID)
+func (r *UserProgressRepository) GetAll(ctx context.Context, userID pgtype.UUID) ([]sqlc.GetAllUserProgressRow, error) {
+	return r.sqlc.GetAllUserProgress(ctx, userID)
 }
 
-func (r *UserProgressRepository) Create(ctx context.Context, params CreateProgressParams) (db.UserProgress, error) {
-	return r.db.CreateUserProgress(ctx, db.CreateUserProgressParams{
+func (r *UserProgressRepository) Create(ctx context.Context, params CreateProgressParams) (sqlc.UserProgress, error) {
+	return r.sqlc.CreateUserProgress(ctx, sqlc.CreateUserProgressParams{
 		UserID:         params.UserID,
 		SeriesID:       params.SeriesID,
 		CurrentSeason:  params.CurrentSeason,
@@ -59,8 +59,8 @@ func (r *UserProgressRepository) Create(ctx context.Context, params CreateProgre
 	})
 }
 
-func (r *UserProgressRepository) Update(ctx context.Context, params UpdateProgressParams) (db.UserProgress, error) {
-	return r.db.UpdateUserProgress(ctx, db.UpdateUserProgressParams{
+func (r *UserProgressRepository) Update(ctx context.Context, params UpdateProgressParams) (sqlc.UserProgress, error) {
+	return r.sqlc.UpdateUserProgress(ctx, sqlc.UpdateUserProgressParams{
 		UserID:         params.UserID,
 		SeriesID:       params.SeriesID,
 		CurrentSeason:  params.CurrentSeason,
@@ -70,7 +70,7 @@ func (r *UserProgressRepository) Update(ctx context.Context, params UpdateProgre
 }
 
 func (r *UserProgressRepository) Delete(ctx context.Context, userID, seriesID pgtype.UUID) error {
-	return r.db.DeleteUserProgress(ctx, db.DeleteUserProgressParams{
+	return r.sqlc.DeleteUserProgress(ctx, sqlc.DeleteUserProgressParams{
 		UserID:   userID,
 		SeriesID: seriesID,
 	})

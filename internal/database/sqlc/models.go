@@ -2,7 +2,7 @@
 // versions:
 //   sqlc v1.30.0
 
-package db
+package sqlc
 
 import (
 	"github.com/jackc/pgx/v5/pgtype"
@@ -18,9 +18,9 @@ type Series struct {
 	Description   pgtype.Text      `json:"description"`
 	TotalEpisodes pgtype.Int4      `json:"total_episodes"`
 	TotalSeasons  pgtype.Int4      `json:"total_seasons"`
-	IsSerial      bool             `json:"is_serial"`
 	CreatedAt     pgtype.Timestamp `json:"created_at"`
 	UpdatedAt     pgtype.Timestamp `json:"updated_at"`
+	IsSerial      pgtype.Bool      `json:"is_serial"`
 }
 
 type User struct {

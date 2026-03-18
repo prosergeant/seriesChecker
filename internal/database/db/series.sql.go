@@ -12,9 +12,9 @@ import (
 )
 
 const createSeries = `-- name: CreateSeries :one
-INSERT INTO series (kinopoisk_id, title, original_title, poster_url, year, description, total_episodes, total_seasons)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, kinopoisk_id, title, original_title, poster_url, year, description, total_episodes, total_seasons, created_at, updated_at
+INSERT INTO series (kinopoisk_id, title, original_title, poster_url, year, description, total_episodes, total_seasons, is_serial)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, kinopoisk_id, title, original_title, poster_url, year, description, total_episodes, total_seasons, is_serial, created_at, updated_at
 `
 
 type CreateSeriesParams struct {
@@ -26,6 +26,7 @@ type CreateSeriesParams struct {
 	Description   pgtype.Text `json:"description"`
 	TotalEpisodes pgtype.Int4 `json:"total_episodes"`
 	TotalSeasons  pgtype.Int4 `json:"total_seasons"`
+	IsSerial      bool        `json:"is_serial"`
 }
 
 func (q *Queries) CreateSeries(ctx context.Context, arg CreateSeriesParams) (Series, error) {
@@ -38,6 +39,7 @@ func (q *Queries) CreateSeries(ctx context.Context, arg CreateSeriesParams) (Ser
 		arg.Description,
 		arg.TotalEpisodes,
 		arg.TotalSeasons,
+		arg.IsSerial,
 	)
 	var i Series
 	err := row.Scan(
@@ -50,6 +52,7 @@ func (q *Queries) CreateSeries(ctx context.Context, arg CreateSeriesParams) (Ser
 		&i.Description,
 		&i.TotalEpisodes,
 		&i.TotalSeasons,
+		&i.IsSerial,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

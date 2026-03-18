@@ -24,16 +24,16 @@ func NewClient(apiKey string) *Client {
 }
 
 type SearchResponse struct {
-	Films []Film `json:"films"`
-	PagesCount int `json:"pagesCount"`
+	Films      []Film `json:"films"`
+	PagesCount int    `json:"pagesCount"`
 }
 
 type Film struct {
-	FilmID int `json:"filmId"`
-	NameRU      string `json:"nameRu"`
-	NameEN     string `json:"nameEn"`
-	Year       string `json:"year"`
-	PosterURL  string `json:"posterUrl"`
+	FilmID           int    `json:"filmId"`
+	NameRU           string `json:"nameRu"`
+	NameEN           string `json:"nameEn"`
+	Year             string `json:"year"`
+	PosterURL        string `json:"posterUrl"`
 	PosterURLPreview string `json:"posterUrlPreview"`
 }
 
@@ -72,15 +72,16 @@ func (c *Client) Search(ctx context.Context, query string) ([]Film, error) {
 }
 
 type FilmDetails struct {
-	KinopoiskID int `json:"kinopoiskId"`
+	KinopoiskID int    `json:"kinopoiskId"`
 	NameRU      string `json:"nameRu"`
-	NameEN     string `json:"nameEn"`
-	Year       int `json:"year"`
-	PosterURL  string `json:"posterUrl"`
+	NameEN      string `json:"nameEn"`
+	Year        int    `json:"year"`
+	PosterURL   string `json:"posterUrl"`
 	Description string `json:"description"`
-	FilmLength int `json:"filmLength"`
-	Series     bool `json:"serial"`
-	TotalSeries int `json:"totalSeriesCount"`
+	FilmLength  int    `json:"filmLength"`
+	Series      bool   `json:"serial"`
+	TotalSeries int    `json:"totalSeriesCount"`
+	IsSerial    bool   `json:"is_serial"`
 }
 
 func (c *Client) GetFilm(ctx context.Context, id int) (*FilmDetails, error) {

@@ -24,6 +24,7 @@ type Series struct {
 	Description    *string   `json:"description,omitempty"`
 	TotalEpisodes  *int      `json:"total_episodes,omitempty"`
 	TotalSeasons   *int      `json:"total_seasons,omitempty"`
+	IsSerial       bool      `json:"is_serial"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
 }

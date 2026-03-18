@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prosergeant/seriesChecker/internal/config"
 	"github.com/prosergeant/seriesChecker/internal/database"
-	"github.com/prosergeant/seriesChecker/internal/database/db"
+	"github.com/prosergeant/seriesChecker/internal/database/sqlc"
 	"github.com/prosergeant/seriesChecker/internal/handler/auth"
 	"github.com/prosergeant/seriesChecker/internal/handler/progress"
 	"github.com/prosergeant/seriesChecker/internal/handler/series"
@@ -55,7 +55,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	queries := db.New(dbPool)
+	queries := sqlc.New(dbPool)
 
 	redisClient, err := database.NewRedis(ctx, cfg.Redis)
 	if err != nil {

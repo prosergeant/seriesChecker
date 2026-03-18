@@ -33,6 +33,7 @@ type SeriesSearchResult struct {
 	Description   string `json:"description,omitempty"`
 	TotalEpisodes int    `json:"total_episodes,omitempty"`
 	TotalSeasons  int    `json:"total_seasons,omitempty"`
+	IsSerial      bool   `json:"is_serial"`
 }
 
 func (s *SeriesService) Search(ctx context.Context, query string) ([]SeriesSearchResult, error) {
@@ -69,6 +70,7 @@ func (s *SeriesService) GetByID(ctx context.Context, kinopoiskID int) (*SeriesSe
 			Year:          int(existing.Year.Int32),
 			Description:   existing.Description.String,
 			TotalSeasons:  int(existing.TotalSeasons.Int32),
+			IsSerial:      existing.IsSerial.Bool,
 		}, nil
 	}
 
@@ -87,6 +89,7 @@ func (s *SeriesService) GetByID(ctx context.Context, kinopoiskID int) (*SeriesSe
 		Year:          film.Year,
 		Description:   film.Description,
 		TotalSeasons:  film.TotalSeries,
+		IsSerial:      film.Series || film.IsSerial,
 	}
 
 	// Сохраняем в БД для будущих запросов
@@ -105,6 +108,7 @@ func (s *SeriesService) SaveToDB(ctx context.Context, params SeriesSearchResult)
 		Description:   pgtype.Text{String: params.Description, Valid: params.Description != ""},
 		TotalEpisodes: pgtype.Int4{Int32: 0, Valid: false},
 		TotalSeasons:  pgtype.Int4{Int32: int32(params.TotalSeasons), Valid: params.TotalSeasons > 0},
+		IsSerial:      pgtype.Bool{Bool: params.IsSerial, Valid: true},
 	})
 	return err
 }
