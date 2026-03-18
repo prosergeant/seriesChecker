@@ -57,11 +57,7 @@ func (s *SeriesService) Search(ctx context.Context, query string) ([]SeriesSearc
 }
 
 func (s *SeriesService) GetByID(ctx context.Context, kinopoiskID int) (*SeriesSearchResult, error) {
-	film, err := s.kinopoisk.GetFilm(ctx, kinopoiskID)
-	if err != nil {
-		return nil, err
-	}
-
+	// 1. Сначала проверяем БД (кеш)
 	existing, err := s.seriesRepo.GetByKinopoiskID(ctx, int32(kinopoiskID))
 	if err == nil && existing.KinopoiskID > 0 {
 		return &SeriesSearchResult{
@@ -76,6 +72,12 @@ func (s *SeriesService) GetByID(ctx context.Context, kinopoiskID int) (*SeriesSe
 		}, nil
 	}
 
+	// 2. Если нет в БД - запрашиваем Kinopoisk
+	film, err := s.kinopoisk.GetFilm(ctx, kinopoiskID)
+	if err != nil {
+		return nil, err
+	}
+
 	result := SeriesSearchResult{
 		ID:            film.KinopoiskID,
 		KinopoiskID:   film.KinopoiskID,
@@ -87,6 +89,7 @@ func (s *SeriesService) GetByID(ctx context.Context, kinopoiskID int) (*SeriesSe
 		TotalSeasons:  film.TotalSeries,
 	}
 
+	// Сохраняем в БД для будущих запросов
 	s.SaveToDB(ctx, result)
 
 	return &result, nil
