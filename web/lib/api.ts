@@ -99,6 +99,7 @@ export interface ProgressItem {
   current_season: number;
   current_episode: number;
   status: string;
+  is_serial: boolean
 }
 
 export interface UpdateProgressRequest {
