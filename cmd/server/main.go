@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -107,7 +108,7 @@ func main() {
 		w.Write([]byte(`{"status":"ok"}`))
 	})
 
-	handler := middleware.CORS(
+	apiHandler := middleware.CORS(
 		middleware.Recovery(
 			middleware.Logger(mux, logger),
 			logger,
@@ -123,13 +124,20 @@ func main() {
 
 	proxy := httputil.NewSingleHostReverseProxy(nextProxy)
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	mainHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+
+		if strings.HasPrefix(path, "/api/") || path == "/health" {
+			apiHandler.ServeHTTP(w, r)
+			return
+		}
+
 		proxy.ServeHTTP(w, r)
 	})
 
 	server := &http.Server{
 		Addr:         ":" + cfg.Server.Port,
-		Handler:      handler,
+		Handler:      mainHandler,
 		ReadTimeout:  cfg.Server.ReadTimeout,
 		WriteTimeout: cfg.Server.WriteTimeout,
 	}

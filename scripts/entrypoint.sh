@@ -1,20 +1,21 @@
 #!/bin/sh
 set -e
 
-# Handle shutdown signals
+echo "=== Container starting ==="
+echo "Current directory: $(pwd)"
+echo "Files in /app: $(ls -la /app 2>/dev/null || echo 'not found')"
+
 shutdown() {
-    echo "Received shutdown signal, stopping services..."
-    
-    # Stop Go server (it will be PID 1, so this will terminate the container)
-    if [ -n "$SERVER_PID" ]; then
-        kill -TERM $SERVER_PID 2>/dev/null || true
-    fi
-    
-    # Stop Next.js
+    echo "=== Received shutdown signal ==="
     if [ -n "$NEXT_PID" ]; then
+        echo "Stopping Next.js (PID: $NEXT_PID)..."
         kill -TERM $NEXT_PID 2>/dev/null || true
     fi
-    
+    if [ -n "$SERVER_PID" ]; then
+        echo "Stopping Go server (PID: $SERVER_PID)..."
+        kill -TERM $SERVER_PID 2>/dev/null || true
+    fi
+    echo "=== Shutdown complete ==="
     exit 0
 }
 
@@ -40,40 +41,80 @@ if [ $attempt -eq $max_attempts ]; then
 fi
 
 echo "Running migrations..."
-
-run_migration() {
-    migration_file="$1"
-    migration_name=$(basename "$migration_file")
-    
-    applied=$(PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT COUNT(*) FROM schema_migrations WHERE name = '$migration_name';" 2>/dev/null | tr -d ' ')
-    
-    if [ "$applied" = "0" ]; then
-        echo "Applying migration: $migration_name"
-        PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f "$migration_file"
-        echo "Migration $migration_name applied successfully"
-    else
-        echo "Migration $migration_name already applied, skipping"
-    fi
-}
-
 for migration in /app/migrations/*.sql; do
     if [ -f "$migration" ]; then
-        run_migration "$migration"
+        migration_name=$(basename "$migration")
+        applied=$(PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT COUNT(*) FROM schema_migrations WHERE name = '$migration_name';" 2>/dev/null | tr -d ' ')
+        if [ "$applied" = "0" ]; then
+            echo "Applying migration: $migration_name"
+            PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f "$migration"
+        else
+            echo "Migration $migration_name already applied"
+        fi
     fi
 done
 
-echo "Starting Next.js server on port 3000..."
-node .next/standalone/server.js &
-NEXT_PID=$!
+echo "Checking Next.js standalone files..."
+if [ -f "server.js" ]; then
+    echo "server.js found at /app/server.js"
+else
+    echo "ERROR: server.js NOT found!"
+    ls -la /app/
+    exit 1
+fi
 
-# Wait for Next.js to start
-sleep 3
+echo "Starting Next.js server on port 3000..."
+PORT=3000 HOSTNAME=localhost node server.js > /tmp/nextjs.log 2>&1 &
+NEXT_PID=$!
+echo "Next.js started with PID: $NEXT_PID"
+
+echo "Waiting for Next.js to be ready..."
+for i in $(seq 1 30); do
+    if grep -q "Ready" /tmp/nextjs.log 2>/dev/null; then
+        echo "Next.js is ready!"
+        break
+    fi
+    echo "Waiting... ($i/30)"
+    sleep 1
+done
+
+if ! kill -0 $NEXT_PID 2>/dev/null; then
+    echo "ERROR: Next.js failed to start!"
+    echo "Next.js log:"
+    cat /tmp/nextjs.log
+    exit 1
+fi
 
 echo "Starting Go server on port 8080..."
-/app/server &
+/app/server > /tmp/go.log 2>&1 &
 SERVER_PID=$!
+echo "Go server started with PID: $SERVER_PID"
 
-echo "All services started. Next.js PID: $NEXT_PID, Server PID: $SERVER_PID"
+sleep 3
 
-# Wait for any process to exit
-wait $SERVER_PID $NEXT_PID
+if ! kill -0 $SERVER_PID 2>/dev/null; then
+    echo "ERROR: Go server failed to start!"
+    echo "Go log:"
+    cat /tmp/go.log
+    kill $NEXT_PID 2>/dev/null || true
+    exit 1
+fi
+
+echo "=== All services started ==="
+echo "Next.js: PID $NEXT_PID, Log: /tmp/nextjs.log"
+echo "Go: PID $SERVER_PID, Log: /tmp/go.log"
+
+# Monitor processes
+while true; do
+    sleep 10
+    if ! kill -0 $NEXT_PID 2>/dev/null; then
+        echo "WARNING: Next.js died!"
+        cat /tmp/nextjs.log
+    fi
+    if ! kill -0 $SERVER_PID 2>/dev/null; then
+        echo "WARNING: Go server died!"
+        cat /tmp/go.log
+        kill $NEXT_PID 2>/dev/null || true
+        exit 1
+    fi
+done
