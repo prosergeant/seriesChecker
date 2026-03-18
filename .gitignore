@@ -1,0 +1,25 @@
+# Environment
+.env
+.env.local
+.env.production
+
+# Binary
+bin/
+*.exe
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.dockerignore
+
+# Logs
+*.log
+logs/

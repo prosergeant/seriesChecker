@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -108,7 +110,26 @@ func main() {
 			middleware.Logger(mux, logger),
 			logger,
 		),
+		cfg.AllowedOrigins,
 	)
+
+	http.HandleFunc("/_next/", func(w http.ResponseWriter, r *http.Request) {
+		file := strings.TrimPrefix(r.URL.Path, "/_next/")
+		file = filepath.Join(".", "web", ".next", "static", file)
+		http.ServeFile(w, r, file)
+	})
+
+	http.HandleFunc("/public/", func(w http.ResponseWriter, r *http.Request) {
+		file := strings.TrimPrefix(r.URL.Path, "/public/")
+		file = filepath.Join(".", "web", "public", file)
+		http.ServeFile(w, r, file)
+	})
+
+	http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, filepath.Join(".", "web", "public", "favicon.ico"))
+	})
+
+	http.Handle("/", mux)
 
 	server := &http.Server{
 		Addr:         ":" + cfg.Server.Port,

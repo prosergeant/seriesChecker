@@ -15,10 +15,12 @@
 ### 2. Инфраструктура (Docker)
 - [x] docker-compose.yml с PostgreSQL, Redis, pgAdmin
 - [x] Контейнеры запущены и работают
+- [x] Dockerfile для production деплоя
+- [x] scripts/entrypoint.sh для автоматических миграций
 
 ### 3. Backend - Структура проекта
-- [x] Go 1.26 установлен
-- [x] go.mod с Go 1.26
+- [x] Go 1.25
+- [x] go.mod с Go 1.25
 - [x] internal/config - конфигурация (сессии вместо JWT)
 - [x] internal/database - подключение к PostgreSQL и Redis
 - [x] internal/database/db - sqlc сгенерированный код
@@ -28,6 +30,7 @@
 - [x] internal/service - Auth, Session, Series, Progress сервисы
 - [x] internal/handler - HTTP handlers (auth, series, progress)
 - [x] SQL-миграции созданы и применены
+- [x] Раздача статики Next.js из Go сервера
 
 ### 4. API Реализация
 - [x] Auth API - регистрация, логин, logout, me
@@ -51,6 +54,12 @@
 - [x] Сервер запускается
 - [x] Health endpoint работает
 - [x] Авторизация работает (cookie + header)
+
+### 7. Deployment
+- [x] Dockerfile с multi-stage build
+- [x] entrypoint.sh с автоматическими миграциями
+- [x] .env.example с переменными для Render
+- [x] .gitignore настроен
 
 ---
 

@@ -2,17 +2,20 @@ package config
 
 import (
 	"os"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
 )
 
 type Config struct {
-	Server     ServerConfig
-	Database   DatabaseConfig
-	Redis      RedisConfig
-	Session    SessionConfig
-	Kinopoisk  KinopoiskConfig
+	Server      ServerConfig
+	Database    DatabaseConfig
+	Redis       RedisConfig
+	Session     SessionConfig
+	Kinopoisk   KinopoiskConfig
+	AllowedOrigins []string
+	NextPublicAPIURL string
 }
 
 type ServerConfig struct {
@@ -39,6 +42,7 @@ type RedisConfig struct {
 
 type SessionConfig struct {
 	CookieName string
+	CookieDomain string
 	MaxAge     int
 	RedisKey   string
 }
@@ -49,6 +53,14 @@ type KinopoiskConfig struct {
 
 func Load() *Config {
 	godotenv.Load()
+
+	originsStr := getEnv("ALLOWED_ORIGINS", "")
+	var origins []string
+	if originsStr != "" {
+		for _, o := range splitComma(originsStr) {
+			origins = append(origins, o)
+		}
+	}
 
 	return &Config{
 		Server: ServerConfig{
@@ -72,13 +84,27 @@ func Load() *Config {
 		},
 		Session: SessionConfig{
 			CookieName: getEnv("SESSION_COOKIE_NAME", "session_id"),
+			CookieDomain: getEnv("COOKIE_DOMAIN", ""),
 			MaxAge:     60 * 60 * 24 * 7, // 7 days in seconds
 			RedisKey:   "session:",
 		},
 		Kinopoisk: KinopoiskConfig{
 			APIKey: getEnv("KINOPOISK_API_KEY", ""),
 		},
+		AllowedOrigins:    origins,
+		NextPublicAPIURL: getEnv("NEXT_PUBLIC_API_URL", ""),
 	}
+}
+
+func splitComma(s string) []string {
+	var result []string
+	for _, part := range strings.Split(s, ",") {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			result = append(result, part)
+		}
+	}
+	return result
 }
 
 func getEnv(key, defaultValue string) string {

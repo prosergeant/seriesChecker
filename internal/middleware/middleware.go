@@ -3,6 +3,7 @@ package middleware
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -46,15 +47,29 @@ func Recovery(next http.Handler, logger *slog.Logger) http.Handler {
 	})
 }
 
-func CORS(next http.Handler) http.Handler {
+func CORS(next http.Handler, allowedOrigins []string) http.Handler {
+	originsMap := make(map[string]bool)
+	for _, o := range allowedOrigins {
+		originsMap[strings.TrimSpace(o)] = true
+	}
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
-		if origin != "" {
-			w.Header().Set("Access-Control-Allow-Origin", origin)
-			w.Header().Set("Access-Control-Allow-Credentials", "true")
-		} else {
-			w.Header().Set("Access-Control-Allow-Origin", "*")
+
+		allowedOrigin := ""
+		if origin != "" && originsMap[origin] {
+			allowedOrigin = origin
+		} else if len(allowedOrigins) == 1 && allowedOrigins[0] == "*" {
+			allowedOrigin = "*"
+		} else if origin != "" && len(allowedOrigins) == 0 {
+			allowedOrigin = origin
 		}
+
+		if allowedOrigin != "" {
+			w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+		}
+
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
