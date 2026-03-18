@@ -70,6 +70,10 @@ function ProgressCard({ item, onUpdate, onDelete }: {
     setIsEditing(false);
   };
 
+  const goToPreview = () => {
+    window.open(`https://www.sspoisk.ru/${item.is_serial ? 'series' : 'film'}/${item.kinopoisk_id}`, '_blank')
+  }
+
   return (
     <Card className="flex flex-row overflow-hidden">
       {item.poster_url && (
@@ -118,6 +122,10 @@ function ProgressCard({ item, onUpdate, onDelete }: {
             </Button>
           </div>
         )}
+
+        <Button className="mt-3" variant="outline" size="sm" onClick={goToPreview}>
+          Просмотр
+        </Button>
       </div>
     </Card>
   );
