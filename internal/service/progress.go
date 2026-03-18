@@ -9,14 +9,16 @@ import (
 )
 
 type ProgressService struct {
-	progressRepo *repository.UserProgressRepository
-	seriesRepo   *repository.SeriesRepository
+	progressRepo  *repository.UserProgressRepository
+	seriesRepo    *repository.SeriesRepository
+	seriesService *SeriesService
 }
 
-func NewProgressService(progressRepo *repository.UserProgressRepository, seriesRepo *repository.SeriesRepository) *ProgressService {
+func NewProgressService(progressRepo *repository.UserProgressRepository, seriesRepo *repository.SeriesRepository, seriesService *SeriesService) *ProgressService {
 	return &ProgressService{
-		progressRepo: progressRepo,
-		seriesRepo:   seriesRepo,
+		progressRepo:  progressRepo,
+		seriesRepo:    seriesRepo,
+		seriesService: seriesService,
 	}
 }
 
@@ -77,9 +79,19 @@ func (s *ProgressService) GetListByStatus(ctx context.Context, userID uuid.UUID,
 }
 
 func (s *ProgressService) UpdateProgress(ctx context.Context, userID uuid.UUID, seriesID, currentSeason, currentEpisode int, status string) (*ProgressResult, error) {
+	// Получаем или создаем серию в БД
 	series, err := s.seriesRepo.GetByKinopoiskID(ctx, int32(seriesID))
-	if err != nil {
-		return nil, err
+	if err != nil || series.KinopoiskID == 0 {
+		// Серии нет в БД - запрашиваем из Kinopoisk и сохраняем
+		_, err := s.seriesService.GetByID(ctx, seriesID)
+		if err != nil {
+			return nil, err
+		}
+		// GetByID уже сохраняет в БД, получаем снова
+		series, err = s.seriesRepo.GetByKinopoiskID(ctx, int32(seriesID))
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	existing, err := s.progressRepo.Get(ctx, pgtype.UUID{Bytes: userID, Valid: true}, series.ID)

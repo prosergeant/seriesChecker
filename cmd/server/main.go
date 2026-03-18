@@ -76,7 +76,7 @@ func main() {
 	// работает с клиентом кинопоиска и репозиторием серий
 	seriesService := service.NewSeriesService(seriesRepo, kinopoiskClient)
 	// работает с репозиторием прогресса
-	progressService := service.NewProgressService(progressRepo, seriesRepo)
+	progressService := service.NewProgressService(progressRepo, seriesRepo, seriesService)
 
 	authHandler := auth.NewHandler(authService)
 	seriesHandler := series.NewHandler(seriesService)
