@@ -1,6 +1,6 @@
 # Progress Report
 
-## Current Status: В процессе
+## Current Status: В процессе (Server Actions миграция)
 
 ---
 
@@ -45,46 +45,56 @@
 - [x] Главная страница с списком сериалов
 - [x] Поиск сериалов
 - [x] Добавление/обновление/удаление прогресса
+- [x] Аутентификация через cookies
 
-### 6. Тестирование
-- [x] Сервер компилируется
-- [x] Сервер запускается
-- [x] Health endpoint работает
-- [x] Авторизация работает (cookie + header)
+### 6. Server Actions миграция
+- [x] Установлены зависимости: zod, pg, @types/pg, ioredis
+- [x] Создана структура папок lib/db/ и lib/actions/
+- [x] lib/db/client.ts - PostgreSQL connection pool
+- [x] lib/db/types.ts - TypeScript типы
+- [x] lib/db/queries.ts - SQL запросы для progress
+- [x] lib/auth/server.ts - серверный auth helper для чтения cookies
+- [x] lib/actions/progress.ts - Server Actions (add, update, delete progress)
+- [x] DATABASE_URL и REDIS_* добавлены в .env.local
+- [x] Интеграция Server Actions в page.tsx
+- [x] useTransition для асинхронных вызовов
 
 ---
 
 ## 🔄 В процессе
 
 ### Следующие шаги
-1. Добавить страницу детальной информации о сериале
-2. Server Components для страниц сериалов
-3. Server Actions для форм
-4. useOptimistic для UI обновлений
-5. Docker для деплоя (multi-stage build)
-6. CI/CD (GitHub Actions)
+1. [ ] Протестировать Server Actions для add/update/delete
+2. [ ] Рассмотреть полную миграцию на Server Components
+3. [ ] Добавить валидацию с Zod
+
+### Будущие улучшения
+- Server Components для статических страниц
+- Docker multi-stage build
+- GitHub Actions (линтинг, типы, тесты)
 
 ---
 
 ## 📋 Следующие шаги
 
-1. **Детальная страница сериала**
-   - GET /series/:id - страница с описанием
-   - плеер/ссылки на просмотр
+### Миграция Server Actions
+1. [ ] ProgressCard → Server Actions для мутаций
+2. [ ] Добавить auth validation (проверка сессии)
+3. [ ] useFormState для обработки результата
+4. [ ] revalidatePath() после мутаций
 
-2. **Оптимизация UI**
-   - useOptimistic для галочек выполнения
-   - Server Components для SEO
-
-3. **DevOps**
-   - Docker multi-stage build
-   - GitHub Actions (линтинг, типы, тесты)
+### Будущие улучшения
+- Server Components для статических страниц
+- Docker multi-stage build
+- GitHub Actions (линтинг, типы, тесты)
 
 ---
 
 ## 📊 Статистика
 
 - **Go файлов:** 20+
-- **Frontend компонентов:** 10+
+- **Frontend компонентов:** 15+
 - **Контейнеров:** 3 (PostgreSQL, Redis, pgAdmin)
 - **API эндпоинтов:** 10+
+- **Server Actions:** 4 (getProgress, addProgress, updateProgress, removeProgress)
+- **Server-side DB клиентов:** PostgreSQL (pg), Redis (ioredis)

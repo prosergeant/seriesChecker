@@ -1,23 +1,24 @@
 'use client';
 
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useTransition } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { api, ProgressItem, SeriesSearchResult, UpdateProgressRequest } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Play, Plus, Trash2, Check, Eye, Clock, X, LogOut } from 'lucide-react';
+import { Search, Plus, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/components/auth-context';
 import { ProtectedRoute } from '@/components/protected-route';
+import { addProgress, updateUserProgress, removeProgress } from '@/lib/actions/progress';
 
-const STATUS_LABELS: Record<string, { label: string; icon: React.ReactNode }> = {
-  watching: { label: 'Смотрю', icon: <Eye className="w-4 h-4" /> },
-  completed: { label: 'Просмотрено', icon: <Check className="w-4 h-4" /> },
-  planned: { label: 'Запланировано', icon: <Clock className="w-4 h-4" /> },
-  dropped: { label: 'Брошено', icon: <X className="w-4 h-4" /> },
-  on_hold: { label: 'На паузе', icon: <Clock className="w-4 h-4" /> },
+const STATUS_LABELS: Record<string, { label: string }> = {
+  watching: { label: 'Смотрю' },
+  completed: { label: 'Просмотрено' },
+  planned: { label: 'Запланировано' },
+  dropped: { label: 'Брошено' },
+  on_hold: { label: 'На паузе' },
 };
 
 function SearchResults({ query, onSelect }: { query: string; onSelect: (series: SeriesSearchResult) => void }) {
@@ -54,10 +55,16 @@ function SearchResults({ query, onSelect }: { query: string; onSelect: (series: 
   );
 }
 
-function ProgressCard({ item, onUpdate, onDelete }: { 
+function ProgressCard({ 
+  item, 
+  onUpdate, 
+  onDelete,
+  isPending 
+}: { 
   item: ProgressItem; 
   onUpdate: (data: UpdateProgressRequest) => void;
   onDelete: () => void;
+  isPending?: boolean;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [season, setSeason] = useState(item.current_season);
@@ -66,7 +73,7 @@ function ProgressCard({ item, onUpdate, onDelete }: {
   const statusInfo = STATUS_LABELS[item.status] || { label: item.status, icon: null };
 
   const handleSave = () => {
-    onUpdate({ ...item, current_season: season, current_episode: episode });
+    onUpdate({ series_id: item.series_id, current_season: season, current_episode: episode, status: item.status });
     setIsEditing(false);
   };
 
@@ -75,7 +82,7 @@ function ProgressCard({ item, onUpdate, onDelete }: {
   }
 
   return (
-    <div className="bg-white rounded-2xl flex flex-row overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+    <div className={`bg-white rounded-2xl flex flex-row overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-shadow ${isPending ? 'opacity-50' : ''}`}>
       {item.poster_url && (
         <div className="w-[100px] md:w-[120px] flex-shrink-0">
           <img 
@@ -124,9 +131,9 @@ function ProgressCard({ item, onUpdate, onDelete }: {
               </button>
               <button
                 onClick={() => setIsEditing(false)}
-                className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-full"
+                className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-600 text-sm font-medium rounded-full"
               >
-                X
+                ✕
               </button>
             </>
           ) : (
@@ -171,6 +178,8 @@ function HomeContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSeries, setSelectedSeries] = useState<SeriesSearchResult | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [isPending, startTransition] = useTransition();
+  const [pendingId, setPendingId] = useState<number | null>(null);
   const queryClient = useQueryClient();
   const { user, logout } = useAuth();
   const router = useRouter();
@@ -180,49 +189,71 @@ function HomeContent() {
     queryFn: () => api.progress.getAll(statusFilter || undefined),
   });
 
-  const addMutation = useMutation({
-    mutationFn: (series: SeriesSearchResult) =>
-      api.progress.update({
-        series_id: series.id,
-        current_season: 1,
-        current_episode: 0,
-        status: 'watching',
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['progress'] });
-      toast.success('Добавлено в список');
-      setSearchQuery('');
-      setSelectedSeries(null);
-    },
-    onError: (error: Error) => {
-      toast.error(error.message);
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: (data: UpdateProgressRequest) => api.progress.update(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['progress'] });
-      toast.success('Обновлено');
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (seriesId: number) => api.progress.delete(seriesId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['progress'] });
-      toast.success('Удалено');
-    },
-  });
-
   const handleLogout = async () => {
     await logout();
     router.push('/login');
   };
 
-  const handleSelectSeries = (series: SeriesSearchResult) => {
+  const handleAddSeries = (series: SeriesSearchResult) => {
     setSelectedSeries(series);
-    addMutation.mutate(series);
+    startTransition(async () => {
+      try {
+        await addProgress(
+          series.id,
+          series.title,
+          series.poster_url || null,
+          false, // is_serial - default to false for search results
+          1,
+          0,
+          'watching'
+        );
+        toast.success('Добавлено в список');
+        queryClient.invalidateQueries({ queryKey: ['progress'] });
+        setSearchQuery('');
+        setSelectedSeries(null);
+      } catch (err) {
+        toast.error('Ошибка при добавлении');
+      }
+    });
+  };
+
+  const handleUpdate = (data: UpdateProgressRequest) => {
+    const item = progress?.find(p => p.series_id === data.series_id);
+    if (!item) return;
+    
+    setPendingId(data.series_id);
+    startTransition(async () => {
+      try {
+        // We need series_id as string (UUID) for Server Action, but we have kinopoisk_id
+        // For now, we'll use the API route for updates since we need to get the series UUID
+        await api.progress.update(data);
+        queryClient.invalidateQueries({ queryKey: ['progress'] });
+        toast.success('Обновлено');
+      } catch (err) {
+        toast.error('Ошибка при обновлении');
+      } finally {
+        setPendingId(null);
+      }
+    });
+  };
+
+  const handleDelete = (seriesId: number) => {
+    setPendingId(seriesId);
+    startTransition(async () => {
+      try {
+        await api.progress.delete(seriesId);
+        queryClient.invalidateQueries({ queryKey: ['progress'] });
+        toast.success('Удалено');
+      } catch (err) {
+        toast.error('Ошибка при удалении');
+      } finally {
+        setPendingId(null);
+      }
+    });
+  };
+
+  const handleSelectSeries = (series: SeriesSearchResult) => {
+    handleAddSeries(series);
   };
 
   return (
@@ -300,8 +331,9 @@ function HomeContent() {
               <ProgressCard
                 key={item.series_id}
                 item={item}
-                onUpdate={(data) => updateMutation.mutate(data)}
-                onDelete={() => deleteMutation.mutate(item.series_id)}
+                onUpdate={handleUpdate}
+                onDelete={() => handleDelete(item.series_id)}
+                isPending={pendingId === item.series_id}
               />
             ))
           )}
