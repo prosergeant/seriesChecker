@@ -25,45 +25,67 @@
 - [x] internal/model - модели данных
 - [x] internal/middleware - логирование, recovery, CORS, auth
 - [x] internal/repository - User, Series, UserProgress repositories
-- [x] internal/service - Auth, Session сервисы
-- [x] internal/handler/auth - HTTP handlers для auth
+- [x] internal/service - Auth, Session, Series, Progress сервисы
+- [x] internal/handler - HTTP handlers (auth, series, progress)
 - [x] SQL-миграции созданы и применены
 
-### 4. Тестирование
+### 4. API Реализация
+- [x] Auth API - регистрация, логин, logout, me
+- [x] Kinopoisk API клиент - поиск и получение фильмов
+- [x] Series API - поиск сериалов (GET /api/series/search)
+- [x] Series API - получение по ID (GET /api/series/:id)
+- [x] Progress API - CRUD операции (GET/POST/DELETE /api/progress)
+- [x] Кеширование данных о сериалах в PostgreSQL
+
+### 5. Frontend
+- [x] Next.js 15 с React 19
+- [x] Tailwind CSS + Shadcn/UI
+- [x] TanStack Query для синхронизации данных
+- [x] Страница логина/регистрации
+- [x] Главная страница с списком сериалов
+- [x] Поиск сериалов
+- [x] Добавление/обновление/удаление прогресса
+- [x] Аутентификация через X-Session-ID header
+
+### 6. Тестирование
 - [x] Сервер компилируется
 - [x] Сервер запускается
 - [x] Health endpoint работает
+- [x] Авторизация работает (cookie + header)
 
 ---
 
 ## 🔄 В процессе
 
 ### Следующие шаги
-1. Добавить эндпоинты для сериалов (поиск, получение)
-2. Интеграция с Kinopoisk API
-3. Эндпоинты для прогресса пользователя
+1. Добавить страницу детальной информации о сериале
+2. Server Components для страниц сериалов
+3. Server Actions для форм
+4. useOptimistic для UI обновлений
+5. Docker для деплоя (multi-stage build)
+6. CI/CD (GitHub Actions)
 
 ---
 
 ## 📋 Следующие шаги
 
-1. **API для сериалов**
-   - GET /api/series/search - поиск сериалов
-   - GET /api/series/:id - получить сериал
+1. **Детальная страница сериала**
+   - GET /series/:id - страница с описанием
+   - плеер/ссылки на просмотр
 
-2. **Интеграция с Kinopoisk API**
-   - Сервис для запросов к Kinopoisk
-   - Кеширование данных о сериалах в БД
+2. **Оптимизация UI**
+   - useOptimistic для галочек выполнения
+   - Server Components для SEO
 
-3. **API для прогресса**
-   - GET /api/progress - список прогресса
-   - POST /api/progress - добавить/обновить прогресс
-   - DELETE /api/progress/:seriesId - удалить из списка
+3. **DevOps**
+   - Docker multi-stage build
+   - GitHub Actions (линтинг, типы, тесты)
 
 ---
 
 ## 📊 Статистика
 
-- **Go файлов:** 15+
+- **Go файлов:** 20+
+- **Frontend компонентов:** 10+
 - **Контейнеров:** 3 (PostgreSQL, Redis, pgAdmin)
-- **Эндпоинтов:** 5 (auth + health)
+- **API эндпоинтов:** 10+
