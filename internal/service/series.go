@@ -125,3 +125,61 @@ func parseYear(s string) int {
 	}
 	return 0
 }
+
+type SimilarResult struct {
+	FilmID       int    `json:"filmId"`
+	NameRU       string `json:"nameRu"`
+	NameEN       string `json:"nameEn"`
+	NameOriginal string `json:"nameOriginal"`
+	PosterURL    string `json:"posterUrl"`
+}
+
+func (s *SeriesService) GetSimilar(ctx context.Context, kinopoiskID int) ([]SimilarResult, error) {
+	films, err := s.kinopoisk.GetSimilar(ctx, kinopoiskID)
+	if err != nil {
+		return nil, err
+	}
+
+	results := make([]SimilarResult, 0, len(films))
+	for _, f := range films {
+		results = append(results, SimilarResult{
+			FilmID:       f.FilmID,
+			NameRU:       f.NameRU,
+			NameEN:       f.NameEN,
+			NameOriginal: f.NameOriginal,
+			PosterURL:    f.PosterURLPreview,
+		})
+	}
+
+	return results, nil
+}
+
+type RelationResult struct {
+	KinopoiskID  int    `json:"kinopoiskId"`
+	NameRU       string `json:"nameRu"`
+	NameEN       string `json:"nameEn"`
+	NameOriginal string `json:"nameOriginal"`
+	PosterURL    string `json:"posterUrl"`
+	RelationType string `json:"relationType"`
+}
+
+func (s *SeriesService) GetRelations(ctx context.Context, kinopoiskID int) ([]RelationResult, error) {
+	films, err := s.kinopoisk.GetRelations(ctx, kinopoiskID)
+	if err != nil {
+		return nil, err
+	}
+
+	results := make([]RelationResult, 0, len(films))
+	for _, f := range films {
+		results = append(results, RelationResult{
+			KinopoiskID:  f.KinopoiskID,
+			NameRU:       f.NameRU,
+			NameEN:       f.NameEN,
+			NameOriginal: f.NameOriginal,
+			PosterURL:    f.PosterURLPreview,
+			RelationType: f.RelationType,
+		})
+	}
+
+	return results, nil
+}

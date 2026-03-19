@@ -112,3 +112,91 @@ func (c *Client) GetFilm(ctx context.Context, id int) (*FilmDetails, error) {
 
 	return &result, nil
 }
+
+type SimilarResponse struct {
+	Total int           `json:"total"`
+	Items []SimilarFilm `json:"items"`
+}
+
+type SimilarFilm struct {
+	FilmID           int    `json:"filmId"`
+	NameRU           string `json:"nameRu"`
+	NameEN           string `json:"nameEn"`
+	NameOriginal     string `json:"nameOriginal"`
+	PosterURL        string `json:"posterUrl"`
+	PosterURLPreview string `json:"posterUrlPreview"`
+	RelationType     string `json:"relationType"`
+}
+
+func (c *Client) GetSimilar(ctx context.Context, id int) ([]SimilarFilm, error) {
+	url := fmt.Sprintf("https://kinopoiskapiunofficial.tech/api/v2.2/films/%d/similars", id)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("X-API-KEY", c.apiKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("kinopoisk API returned status %d", resp.StatusCode)
+	}
+
+	var result SimilarResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return result.Items, nil
+}
+
+type RelationsResponse struct {
+	Total int            `json:"total"`
+	Items []RelationFilm `json:"items"`
+}
+
+type RelationFilm struct {
+	KinopoiskID      int    `json:"kinopoiskId"`
+	NameRU           string `json:"nameRu"`
+	NameEN           string `json:"nameEn"`
+	NameOriginal     string `json:"nameOriginal"`
+	PosterURL        string `json:"posterUrl"`
+	PosterURLPreview string `json:"posterUrlPreview"`
+	RelationType     string `json:"relationType"`
+}
+
+func (c *Client) GetRelations(ctx context.Context, id int) ([]RelationFilm, error) {
+	url := fmt.Sprintf("https://kinopoiskapiunofficial.tech/api/v2.2/films/%d/relations", id)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("X-API-KEY", c.apiKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("kinopoisk API returned status %d", resp.StatusCode)
+	}
+
+	var result RelationsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return result.Items, nil
+}

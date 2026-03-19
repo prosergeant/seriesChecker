@@ -53,6 +53,12 @@ export const api = {
     
     getById: (id: number) =>
       request<SeriesDetails>(`/api/series/${id}`),
+    
+    getSimilar: (id: number) =>
+      request<SimilarMovie[]>(`/api/series/${id}/similar`),
+    
+    getRelations: (id: number) =>
+      request<RelationMovie[]>(`/api/series/${id}/relations`),
   },
 
   progress: {
@@ -107,4 +113,21 @@ export interface UpdateProgressRequest {
   current_season: number;
   current_episode: number;
   status: string;
+}
+
+export interface SimilarMovie {
+  filmId: number;
+  nameRu: string;
+  nameEn: string;
+  nameOriginal: string;
+  posterUrl: string;
+}
+
+export interface RelationMovie {
+  kinopoiskId: number;
+  nameRu: string;
+  nameEn: string;
+  nameOriginal: string;
+  posterUrl: string;
+  relationType: string;
 }

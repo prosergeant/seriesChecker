@@ -12,20 +12,11 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  Search,
-  Play,
-  Plus,
-  Trash2,
-  Check,
-  Eye,
-  Clock,
-  X,
-  LogOut,
-} from "lucide-react";
+import { Search, Check, Eye, Clock, X, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/components/auth-context";
 import { ProtectedRoute } from "@/components/protected-route";
+import { RelatedMoviesModal } from "@/components/RelatedMoviesModal";
 
 const STATUS_LABELS: Record<string, { label: string; icon: React.ReactNode }> =
   {
@@ -57,9 +48,9 @@ function SearchResults({
   return (
     <Card className="absolute top-full left-0 right-0 z-50 mt-2 max-h-80 overflow-auto">
       <CardContent className="p-2">
-        {data.map((series) => (
+        {data.map((series, index) => (
           <button
-            key={series.id}
+            key={`search-${series.id}-${index}`}
             onClick={() => onSelect(series)}
             className="w-full flex items-center gap-3 p-2 hover:bg-muted rounded-lg text-left"
           >
@@ -218,9 +209,14 @@ function ProgressCard({
               </a>
             </>
           )}
+          <RelatedMoviesModal
+            kinopoiskId={item.kinopoisk_id}
+            title={item.title}
+            posterUrl={item.poster_url}
+          />
           <button
             onClick={onDelete}
-            className="ml-auto inline-flex items-center justify-center text-gray-400 hover:text-red-500 bg-transparent hover:bg-red-50 p-2 rounded-full transition-colors"
+            className="inline-flex items-center justify-center text-gray-400 hover:text-red-500 bg-transparent hover:bg-red-50 p-2 rounded-full transition-colors"
             title="Удалить"
           >
             <svg
@@ -378,9 +374,9 @@ function HomeContent() {
               У вас пока нет сериалов в списке
             </div>
           ) : (
-            progress.map((item) => (
+            progress.map((item, index) => (
               <ProgressCard
-                key={item.series_id}
+                key={`progress-${item.series_id}-${index}`}
                 item={item}
                 onUpdate={(data) => updateMutation.mutate(data)}
                 onDelete={() => deleteMutation.mutate(item.series_id)}

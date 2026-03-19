@@ -98,6 +98,8 @@ func main() {
 
 	mux.HandleFunc("GET /api/series/search", seriesHandler.Search)
 	mux.HandleFunc("GET /api/series/{id}", seriesHandler.GetByID)
+	mux.HandleFunc("GET /api/series/{id}/similar", seriesHandler.GetSimilar)
+	mux.HandleFunc("GET /api/series/{id}/relations", seriesHandler.GetRelations)
 
 	mux.Handle("GET /api/progress", protected(http.HandlerFunc(progressHandler.GetList)))
 	mux.Handle("POST /api/progress", protected(http.HandlerFunc(progressHandler.Update)))
