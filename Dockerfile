@@ -1,5 +1,10 @@
+# Build arguments
+ARG NEXT_PUBLIC_API_URL=https://localhost:8080
+
 # Stage 1: Build frontend
 FROM node:20-alpine AS frontend-builder
+
+ARG NEXT_PUBLIC_API_URL
 
 WORKDIR /app/frontend
 
@@ -9,12 +14,9 @@ RUN npm ci --legacy-peer-deps
 COPY web/ ./
 
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
-RUN echo "=== Checking Next.js build ===" && \
-    ls -la .next/standalone/ && \
-    echo "=== server.js exists ===" && \
-    test -f .next/standalone/server.js
+RUN npm run build
 
 # Stage 2: Build backend
 FROM golang:1.25-alpine AS backend-builder
@@ -46,10 +48,6 @@ COPY scripts/entrypoint.sh .
 COPY --from=frontend-builder /app/frontend/.next/standalone ./
 COPY --from=frontend-builder /app/frontend/.next/static ./.next/static
 COPY --from=frontend-builder /app/frontend/public ./public
-
-RUN echo "=== Final image files ===" && \
-    ls -la . && \
-    ls -la .next/standalone/ || true
 
 RUN chmod +x entrypoint.sh
 
