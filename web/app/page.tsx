@@ -1,35 +1,58 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
-import { api, ProgressItem, SeriesSearchResult, UpdateProgressRequest } from '@/lib/api';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Search, Play, Plus, Trash2, Check, Eye, Clock, X, LogOut } from 'lucide-react';
-import { toast } from 'sonner';
-import { useAuth } from '@/components/auth-context';
-import { ProtectedRoute } from '@/components/protected-route';
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
+import {
+  api,
+  ProgressItem,
+  SeriesSearchResult,
+  UpdateProgressRequest,
+} from "@/lib/api";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Search,
+  Play,
+  Plus,
+  Trash2,
+  Check,
+  Eye,
+  Clock,
+  X,
+  LogOut,
+} from "lucide-react";
+import { toast } from "sonner";
+import { useAuth } from "@/components/auth-context";
+import { ProtectedRoute } from "@/components/protected-route";
 
-const STATUS_LABELS: Record<string, { label: string; icon: React.ReactNode }> = {
-  watching: { label: 'Смотрю', icon: <Eye className="w-4 h-4" /> },
-  completed: { label: 'Просмотрено', icon: <Check className="w-4 h-4" /> },
-  planned: { label: 'Запланировано', icon: <Clock className="w-4 h-4" /> },
-  dropped: { label: 'Брошено', icon: <X className="w-4 h-4" /> },
-  on_hold: { label: 'На паузе', icon: <Clock className="w-4 h-4" /> },
-};
+const STATUS_LABELS: Record<string, { label: string; icon: React.ReactNode }> =
+  {
+    watching: { label: "Смотрю", icon: <Eye className="w-4 h-4" /> },
+    completed: { label: "Просмотрено", icon: <Check className="w-4 h-4" /> },
+    planned: { label: "Запланировано", icon: <Clock className="w-4 h-4" /> },
+    dropped: { label: "Брошено", icon: <X className="w-4 h-4" /> },
+    on_hold: { label: "На паузе", icon: <Clock className="w-4 h-4" /> },
+  };
 
-function SearchResults({ query, onSelect }: { query: string; onSelect: (series: SeriesSearchResult) => void }) {
+function SearchResults({
+  query,
+  onSelect,
+}: {
+  query: string;
+  onSelect: (series: SeriesSearchResult) => void;
+}) {
   const { data, isLoading } = useQuery({
-    queryKey: ['search', query],
+    queryKey: ["search", query],
     queryFn: () => api.series.search(query),
     enabled: query.length >= 2,
   });
 
   if (!query || query.length < 2) return null;
   if (isLoading) return <div className="text-center py-4">Загрузка...</div>;
-  if (!data?.length) return <div className="text-center py-4">Ничего не найдено</div>;
+  if (!data?.length)
+    return <div className="text-center py-4">Ничего не найдено</div>;
 
   return (
     <Card className="absolute top-full left-0 right-0 z-50 mt-2 max-h-80 overflow-auto">
@@ -41,11 +64,19 @@ function SearchResults({ query, onSelect }: { query: string; onSelect: (series: 
             className="w-full flex items-center gap-3 p-2 hover:bg-muted rounded-lg text-left"
           >
             {series.poster_url && (
-              <img src={series.poster_url} alt={series.title} className="w-10 h-14 object-cover rounded" />
+              <img
+                src={series.poster_url}
+                alt={series.title}
+                className="w-10 h-14 object-cover rounded"
+              />
             )}
             <div>
               <div className="font-medium">{series.title}</div>
-              {series.year && <div className="text-sm text-muted-foreground">{series.year}</div>}
+              {series.year && (
+                <div className="text-sm text-muted-foreground">
+                  {series.year}
+                </div>
+              )}
             </div>
           </button>
         ))}
@@ -54,8 +85,12 @@ function SearchResults({ query, onSelect }: { query: string; onSelect: (series: 
   );
 }
 
-function ProgressCard({ item, onUpdate, onDelete }: { 
-  item: ProgressItem; 
+function ProgressCard({
+  item,
+  onUpdate,
+  onDelete,
+}: {
+  item: ProgressItem;
   onUpdate: (data: UpdateProgressRequest) => void;
   onDelete: () => void;
 }) {
@@ -63,7 +98,10 @@ function ProgressCard({ item, onUpdate, onDelete }: {
   const [season, setSeason] = useState(item.current_season);
   const [episode, setEpisode] = useState(item.current_episode);
 
-  const statusInfo = STATUS_LABELS[item.status] || { label: item.status, icon: null };
+  const statusInfo = STATUS_LABELS[item.status] || {
+    label: item.status,
+    icon: null,
+  };
 
   const handleSave = () => {
     onUpdate({ ...item, current_season: season, current_episode: episode });
@@ -71,18 +109,21 @@ function ProgressCard({ item, onUpdate, onDelete }: {
   };
 
   const goToPreview = () => {
-    window.open(`https://www.sspoisk.ru/${item.is_serial ? 'series' : 'film'}/${item.kinopoisk_id}`, '_blank')
-  }
+    window.open(
+      `https://www.sspoisk.ru/${item.is_serial ? "series" : "film"}/${item.kinopoisk_id}`,
+      "_blank",
+    );
+  };
 
   return (
     <div className="bg-white rounded-2xl flex flex-row overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
       {item.poster_url && (
         <div className="w-[100px] md:w-[120px] flex-shrink-0">
-          <img 
-            src={item.poster_url} 
-            alt={item.title} 
+          <img
+            src={item.poster_url}
+            alt={item.title}
             className="w-full h-full object-cover"
-            style={{ minHeight: '100%' }}
+            style={{ minHeight: "100%" }}
           />
         </div>
       )}
@@ -103,7 +144,9 @@ function ProgressCard({ item, onUpdate, onDelete }: {
               <input
                 type="number"
                 value={season}
-                onChange={(e) => setSeason(Math.max(1, parseInt(e.target.value) || 1))}
+                onChange={(e) =>
+                  setSeason(Math.max(1, parseInt(e.target.value) || 1))
+                }
                 className="w-12 h-8 text-center border rounded-lg text-sm"
                 min={1}
               />
@@ -111,7 +154,9 @@ function ProgressCard({ item, onUpdate, onDelete }: {
               <input
                 type="number"
                 value={episode}
-                onChange={(e) => setEpisode(Math.max(0, parseInt(e.target.value) || 0))}
+                onChange={(e) =>
+                  setEpisode(Math.max(0, parseInt(e.target.value) || 0))
+                }
                 className="w-12 h-8 text-center border rounded-lg text-sm"
                 min={0}
               />
@@ -131,34 +176,63 @@ function ProgressCard({ item, onUpdate, onDelete }: {
             </>
           ) : (
             <>
-              <button 
+              <button
                 onClick={() => setIsEditing(true)}
                 className="inline-flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 text-sm font-medium px-3 py-1.5 rounded-full transition-colors border border-gray-200"
               >
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                <svg
+                  className="w-3 h-3"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                  />
                 </svg>
-                <span>{item.current_season} сезон · {item.current_episode} серия</span>
+                <span>
+                  {item.current_season} сезон · {item.current_episode} серия
+                </span>
               </button>
-              <a 
-                href="#" 
-                onClick={(e) => { e.preventDefault(); goToPreview(); }}
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  goToPreview();
+                }}
                 className="inline-flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-medium px-3 py-1.5 rounded-full transition-colors border border-indigo-200"
               >
-                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M8 5v14l11-7z"/>
+                <svg
+                  className="w-3 h-3"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M8 5v14l11-7z" />
                 </svg>
                 Смотреть
               </a>
             </>
           )}
-          <button 
+          <button
             onClick={onDelete}
             className="ml-auto inline-flex items-center justify-center text-gray-400 hover:text-red-500 bg-transparent hover:bg-red-50 p-2 rounded-full transition-colors"
             title="Удалить"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+              />
             </svg>
           </button>
         </div>
@@ -168,15 +242,16 @@ function ProgressCard({ item, onUpdate, onDelete }: {
 }
 
 function HomeContent() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedSeries, setSelectedSeries] = useState<SeriesSearchResult | null>(null);
-  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedSeries, setSelectedSeries] =
+    useState<SeriesSearchResult | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>("");
   const queryClient = useQueryClient();
   const { user, logout } = useAuth();
   const router = useRouter();
 
   const { data: progress, isLoading } = useQuery({
-    queryKey: ['progress', statusFilter],
+    queryKey: ["progress", statusFilter],
     queryFn: () => api.progress.getAll(statusFilter || undefined),
   });
 
@@ -186,12 +261,12 @@ function HomeContent() {
         series_id: series.id,
         current_season: 1,
         current_episode: 0,
-        status: 'watching',
+        status: "watching",
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['progress'] });
-      toast.success('Добавлено в список');
-      setSearchQuery('');
+      queryClient.invalidateQueries({ queryKey: ["progress"] });
+      toast.success("Добавлено в список");
+      setSearchQuery("");
       setSelectedSeries(null);
     },
     onError: (error: Error) => {
@@ -202,22 +277,22 @@ function HomeContent() {
   const updateMutation = useMutation({
     mutationFn: (data: UpdateProgressRequest) => api.progress.update(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['progress'] });
-      toast.success('Обновлено');
+      queryClient.invalidateQueries({ queryKey: ["progress"] });
+      toast.success("Обновлено");
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (seriesId: number) => api.progress.delete(seriesId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['progress'] });
-      toast.success('Удалено');
+      queryClient.invalidateQueries({ queryKey: ["progress"] });
+      toast.success("Удалено");
     },
   });
 
   const handleLogout = async () => {
     await logout();
-    router.push('/login');
+    router.push("/login");
   };
 
   const handleSelectSeries = (series: SeriesSearchResult) => {
@@ -258,23 +333,28 @@ function HomeContent() {
                 <Search className="w-4 h-4" />
               </Button>
             </div>
-            {searchQuery && <SearchResults query={searchQuery} onSelect={handleSelectSeries} />}
+            {searchQuery && (
+              <SearchResults
+                query={searchQuery}
+                onSelect={handleSelectSeries}
+              />
+            )}
           </div>
         </div>
 
         <div className="mb-6">
           <div className="flex gap-2 flex-wrap">
             <Button
-              variant={statusFilter === '' ? 'default' : 'outline'}
+              variant={statusFilter === "" ? "default" : "outline"}
               size="sm"
-              onClick={() => setStatusFilter('')}
+              onClick={() => setStatusFilter("")}
             >
               Все
             </Button>
             {Object.entries(STATUS_LABELS).map(([key, { label }]) => (
               <Button
                 key={key}
-                variant={statusFilter === key ? 'default' : 'outline'}
+                variant={statusFilter === key ? "default" : "outline"}
                 size="sm"
                 onClick={() => setStatusFilter(key)}
               >
