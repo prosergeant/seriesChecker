@@ -17,6 +17,12 @@ import { toast } from "sonner";
 import { useAuth } from "@/components/auth-context";
 import { ProtectedRoute } from "@/components/protected-route";
 import { RelatedMoviesModal } from "@/components/RelatedMoviesModal";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const STATUS_LABELS: Record<string, { label: string; icon: React.ReactNode }> =
   {
@@ -95,7 +101,7 @@ function ProgressCard({
   };
 
   const handleSave = () => {
-    onUpdate({ ...item, current_season: season, current_episode: episode });
+    onUpdate({ series_id: item.series_id, current_season: season, current_episode: episode, status: "watching" });
     setIsEditing(false);
   };
 
@@ -123,10 +129,22 @@ function ProgressCard({
           <h3 className="text-lg sm:text-xl font-semibold text-gray-800 tracking-tight truncate pr-2">
             {item.title}
           </h3>
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200 whitespace-nowrap">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span>
-            {statusInfo.label}
-          </span>
+          <DropdownMenu>
+            <DropdownMenuTrigger className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200 whitespace-nowrap hover:bg-emerald-200 transition-colors cursor-pointer outline-none">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span>
+              {statusInfo.label}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              {Object.entries(STATUS_LABELS).map(([key, { label }]) => (
+                <DropdownMenuItem
+                  key={key}
+                  onClick={() => onUpdate({ series_id: item.series_id, current_season: item.current_season, current_episode: item.current_episode, status: key })}
+                >
+                  {label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -374,9 +392,9 @@ function HomeContent() {
               У вас пока нет сериалов в списке
             </div>
           ) : (
-            progress.map((item, index) => (
+            progress.map((item) => (
               <ProgressCard
-                key={`progress-${item.series_id}-${index}`}
+                key={item.series_id}
                 item={item}
                 onUpdate={(data) => updateMutation.mutate(data)}
                 onDelete={() => deleteMutation.mutate(item.series_id)}
