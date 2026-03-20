@@ -141,7 +141,16 @@ export function RelatedMoviesModal({
                 return (
                   <div
                     key={uniqueKey}
-                    className={cn("group relative rounded-lg bg-muted outline-none", "hover-hover:overflow-hidden", "hover-none:overflow-visible")}
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`${movieTitle} — Отслеживать`}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleAddToProgress(movie);
+                      }
+                    }}
+                    className={cn("group relative rounded-lg bg-muted outline-none focus-visible:ring-3 focus-visible:ring-ring/50", "hover-hover:overflow-hidden", "hover-none:overflow-visible")}
                   >
                     {poster ? (
                       <img
