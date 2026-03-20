@@ -88,7 +88,8 @@ export function RelatedMoviesModal({
       <DialogTrigger
         render={
           <button
-            className="inline-flex items-center justify-center text-gray-400 hover:text-gray-600 bg-transparent hover:bg-gray-100 p-2 rounded-full transition-colors"
+            className="inline-flex items-center justify-center text-gray-400 hover:text-gray-600 bg-transparent hover:bg-gray-100 p-2 rounded-full transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            aria-label="Похожие и связанные"
             title="Похожие и связанные"
             onClick={() => setIsOpen(true)}
           >
