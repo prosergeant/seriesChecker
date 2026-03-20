@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Play, Plus, MoreHorizontal, Film, Link2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface RelatedMoviesModalProps {
   kinopoiskId: number;
@@ -87,7 +88,8 @@ export function RelatedMoviesModal({
       <DialogTrigger
         render={
           <button
-            className="inline-flex items-center justify-center text-gray-400 hover:text-gray-600 bg-transparent hover:bg-gray-100 p-2 rounded-full transition-colors"
+            className="inline-flex items-center justify-center text-gray-400 hover:text-gray-600 bg-transparent hover:bg-gray-100 p-2 rounded-full transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            aria-label="Похожие и связанные"
             title="Похожие и связанные"
             onClick={() => setIsOpen(true)}
           >
@@ -140,7 +142,16 @@ export function RelatedMoviesModal({
                 return (
                   <div
                     key={uniqueKey}
-                    className="group relative rounded-lg overflow-hidden bg-muted"
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`${movieTitle} — Отслеживать`}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleAddToProgress(movie);
+                      }
+                    }}
+                    className={cn("group relative rounded-lg bg-muted outline-none focus-visible:ring-3 focus-visible:ring-ring/50", "hover-hover:overflow-hidden", "hover-none:overflow-visible")}
                   >
                     {poster ? (
                       <img
@@ -153,9 +164,9 @@ export function RelatedMoviesModal({
                         <Film className="w-8 h-8 text-muted-foreground" />
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <div className="absolute bottom-0 left-0 right-0 p-2 translate-y-full group-hover:translate-y-0 transition-transform">
-                      <div className="text-white text-xs font-medium line-clamp-2 mb-1">
+                    <div className={cn("absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent transition-opacity", "hover-hover:opacity-0 hover-hover:group-hover:opacity-100 hover-hover:group-focus-within:opacity-100", "hover-none:hidden")} />
+                    <div className={cn("p-2", "hover-hover:absolute hover-hover:bottom-0 hover-hover:left-0 hover-hover:right-0 hover-hover:translate-y-full hover-hover:group-hover:translate-y-0 hover-hover:group-focus-within:translate-y-0 hover-hover:transition-transform", "hover-none:relative hover-none:bg-muted")}>
+                      <div className={cn("text-xs font-medium line-clamp-2 mb-1", "hover-hover:text-white", "hover-none:text-foreground")}>
                         {movieTitle}
                       </div>
                       {relationInfo && (
