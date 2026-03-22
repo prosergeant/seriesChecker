@@ -177,7 +177,7 @@ export function RelatedMoviesModal({
                       <Button
                         size="sm"
                         variant="secondary"
-                        className="w-full mt-2 h-7 text-xs"
+                        className="w-full mt-2 h-8 text-xs"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleAddToProgress(movie);
