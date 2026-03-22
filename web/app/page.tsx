@@ -129,7 +129,7 @@ function ProgressCard({
   };
 
   return (
-    <div className="bg-white rounded-2xl flex flex-row overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+    <div className="bg-card rounded-2xl flex flex-row overflow-hidden border border-border shadow-sm hover:shadow-md transition-shadow">
       {item.poster_url && (
         <div className="w-[100px] md:w-[120px] flex-shrink-0">
           <img
@@ -142,11 +142,11 @@ function ProgressCard({
       )}
       <div className="flex-1 p-4 sm:p-5 flex flex-col gap-3 min-w-0">
         <div className="flex flex-wrap items-start justify-between gap-2">
-          <h3 className="text-lg sm:text-xl font-semibold text-gray-800 tracking-tight truncate pr-2">
+          <h3 className="text-lg sm:text-xl font-semibold text-card-foreground tracking-tight truncate pr-2">
             {item.title}
           </h3>
           <DropdownMenu>
-            <DropdownMenuTrigger className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200 whitespace-nowrap hover:bg-emerald-200 transition-colors cursor-pointer outline-none">
+            <DropdownMenuTrigger className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 whitespace-nowrap hover:bg-emerald-500/30 transition-colors cursor-pointer outline-none">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span>
               {statusInfo.label}
             </DropdownMenuTrigger>
@@ -175,7 +175,7 @@ function ProgressCard({
                 className="w-12 h-8 text-center border rounded-lg text-sm"
                 min={1}
               />
-              <span className="text-sm text-gray-600">сезон</span>
+              <span className="text-sm text-muted-foreground">сезон</span>
               <input
                 type="number"
                 value={episode}
@@ -185,7 +185,7 @@ function ProgressCard({
                 className="w-12 h-8 text-center border rounded-lg text-sm"
                 min={0}
               />
-              <span className="text-sm text-gray-600">эпизод</span>
+              <span className="text-sm text-muted-foreground">эпизод</span>
               <button
                 onClick={handleSave}
                 className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-full"
@@ -204,7 +204,7 @@ function ProgressCard({
               {item.is_serial && (
                 <button
                   onClick={() => setIsEditing(true)}
-                  className="inline-flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 text-sm font-medium px-3 py-1.5 rounded-full transition-colors border border-gray-200"
+                  className="inline-flex items-center gap-1.5 bg-muted hover:bg-muted/80 text-foreground text-sm font-medium px-3 py-1.5 rounded-full transition-colors border border-border"
                 >
                   <svg
                     className="w-3 h-3"
@@ -230,7 +230,7 @@ function ProgressCard({
                   e.preventDefault();
                   goToPreview();
                 }}
-                className="inline-flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-medium px-3 py-1.5 rounded-full transition-colors border border-indigo-200"
+                className="inline-flex items-center gap-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-sm font-medium px-3 py-1.5 rounded-full transition-colors border border-primary/20"
               >
                 <svg
                   className="w-3 h-3"
@@ -250,7 +250,7 @@ function ProgressCard({
           />
           <button
             onClick={onDelete}
-            className="inline-flex items-center justify-center text-gray-400 hover:text-red-500 bg-transparent hover:bg-red-50 p-2 rounded-full transition-colors"
+            className="inline-flex items-center justify-center text-muted-foreground hover:text-destructive bg-transparent hover:bg-destructive/10 p-2 rounded-full transition-colors"
             title="Удалить"
           >
             <svg
