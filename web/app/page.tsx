@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/components/auth-context";
 import { ProtectedRoute } from "@/components/protected-route";
 import { RelatedMoviesModal } from "@/components/RelatedMoviesModal";
+import { PlayerModal } from "@/components/PlayerModal";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -103,13 +104,6 @@ function ProgressCard({
   const handleSave = () => {
     onUpdate({ series_id: item.series_id, current_season: season, current_episode: episode, status: "watching" });
     setIsEditing(false);
-  };
-
-  const goToPreview = () => {
-    window.open(
-      `https://www.sspoisk.ru/${item.is_serial ? "series" : "film"}/${item.kinopoisk_id}`,
-      "_blank",
-    );
   };
 
   return (
@@ -208,23 +202,11 @@ function ProgressCard({
                   </span>
                 </button>
               )}
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  goToPreview();
-                }}
-                className="inline-flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-medium px-3 py-1.5 rounded-full transition-colors border border-indigo-200"
-              >
-                <svg
-                  className="w-3 h-3"
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-                Смотреть
-              </a>
+              <PlayerModal
+                kinopoiskId={item.kinopoisk_id}
+                isSerial={item.is_serial}
+                title={item.title}
+              />
             </>
           )}
           <RelatedMoviesModal

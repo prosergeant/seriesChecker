@@ -15,7 +15,7 @@
 **Кнопки:**
 - Редактирование сезон/серия (только для сериалов) — при сохранении **автоматически ставит статус "watching"**
 - Статус-бейдж — кликабельный `DropdownMenu` для смены статуса (watching/completed/planned/dropped/on_hold)
-- "Смотреть" — открывает sspoisk.ru
+- "Смотреть" — открывает `PlayerModal` с iframe плеером (fbfree.lat)
 - `RelatedMoviesModal` — похожие и связанные
 - Удалить
 
