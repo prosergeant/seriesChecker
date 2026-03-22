@@ -15,7 +15,15 @@
       "Bash(vercel --prod)",
       "Bash(curl -s -c /tmp/prod_cookies.txt -X POST https://series-checker.vercel.app/api/auth/login -H \"Content-Type: application/json\" -d '{\"\"email\"\":\"\"smoke@test.com\"\",\"\"password\"\":\"\"test1234\"\"}')",
       "Bash(__NEW_LINE_d83b80bbc66abd54__ curl:*)",
-      "Bash(find /Users/sergejberendeev/seriesChecker/web -name *.css -o -name globals.css)"
+      "Bash(find /Users/sergejberendeev/seriesChecker/web -name *.css -o -name globals.css)",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_fill_form",
+      "mcp__plugin_playwright_playwright__browser_click",
+      "mcp__plugin_playwright_playwright__browser_snapshot",
+      "mcp__plugin_playwright_playwright__browser_console_messages",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "Bash(npm run:*)",
+      "mcp__plugin_playwright_playwright__browser_resize"
     ]
   }
 }
