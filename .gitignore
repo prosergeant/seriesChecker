@@ -39,3 +39,4 @@ logs/
 .worktrees/
 .security-key
 logs/security/
+.vercel
