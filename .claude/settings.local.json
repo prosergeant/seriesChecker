@@ -7,11 +7,10 @@
       "Bash(vercel --version)",
       "Bash(vercel integration:*)",
       "Bash(vercel env:*)",
-      "Bash(export DATABASE_URL=\"postgresql://neondb_owner:npg_pvORk12ZVLri@ep-odd-glade-amjw9snm-pooler.c-5.us-east-1.aws.neon.tech/neondb?channel_binding=require&sslmode=require\")",
-      "Bash(psql \"$DATABASE_URL\" -c \"\\\\dt public.*\")",
-      "Bash(psql \"$DATABASE_URL\" -c \"SELECT COUNT\\(*\\) FROM users;\" -c \"SELECT COUNT\\(*\\) FROM user_progress;\" -c \"SELECT COUNT\\(*\\) FROM series;\")",
-      "Bash(psql \"$DATABASE_URL\" -c \"SET search_path TO public; SELECT COUNT\\(*\\) FROM users;\")",
-      "Bash(psql \"$DATABASE_URL\" -c \"SET search_path TO public; SELECT COUNT\\(*\\) FROM users;\" -c \"SET search_path TO public; SELECT COUNT\\(*\\) FROM user_progress;\" -c \"SET search_path TO public; SELECT COUNT\\(*\\) FROM series;\")"
+      "Bash(vercel logs:*)",
+      "Bash(curl -s \"https://kinopoiskapiunofficial.tech/api/v2.1/films/search-by-keyword?keyword=Breaking&page=1\" -H \"X-API-KEY: 4c863346-02b9-4a58-b94b-47c89a1752b5\")",
+      "Bash(curl -s https://series-checker.vercel.app/health)",
+      "Bash(curl -s \"https://series-checker.vercel.app/api/series/search?q=Breaking\")"
     ]
   }
 }
