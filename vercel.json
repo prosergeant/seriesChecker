@@ -8,9 +8,5 @@
     { "src": "/health",   "dest": "/api/index.go" },
     { "src": "/(.*)",     "dest": "/web/$1" }
   ],
-  "functions": {
-    "api/index.go": {
-      "regions": ["fra1"]
-    }
-  }
+  "regions": ["fra1"]
 }
