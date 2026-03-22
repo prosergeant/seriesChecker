@@ -1,0 +1,12 @@
+{
+  "builds": [
+    { "src": "api/index.go", "use": "@vercel/go" },
+    { "src": "web/package.json", "use": "@vercel/next" }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/index.go" },
+    { "src": "/health",   "dest": "/api/index.go" },
+    { "src": "/(.*)",     "dest": "/web/$1" }
+  ],
+  "regions": ["fra1"]
+}

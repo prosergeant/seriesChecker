@@ -6,9 +6,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/prosergeant/seriesChecker/internal/config"
-	"github.com/prosergeant/seriesChecker/internal/model"
-	"github.com/prosergeant/seriesChecker/internal/repository"
+	"github.com/prosergeant/seriesChecker/pkg/config"
+	"github.com/prosergeant/seriesChecker/pkg/model"
+	"github.com/prosergeant/seriesChecker/pkg/repository"
 	"golang.org/x/crypto/bcrypt"
 )
 

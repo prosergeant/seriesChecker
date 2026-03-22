@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/prosergeant/seriesChecker/internal/database/sqlc"
+	"github.com/prosergeant/seriesChecker/pkg/database/sqlc"
 )
 
 type UserRepository struct {

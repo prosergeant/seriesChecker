@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/prosergeant/seriesChecker/internal/config"
+	"github.com/prosergeant/seriesChecker/pkg/config"
 )
 
 type DB struct {

@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	"github.com/prosergeant/seriesChecker/internal/service"
+	"github.com/prosergeant/seriesChecker/pkg/service"
 )
 
 const UserIDKey = "user_id"

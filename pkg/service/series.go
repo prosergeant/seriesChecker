@@ -5,8 +5,8 @@ import (
 	"errors"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/prosergeant/seriesChecker/internal/kinopoisk"
-	"github.com/prosergeant/seriesChecker/internal/repository"
+	"github.com/prosergeant/seriesChecker/pkg/kinopoisk"
+	"github.com/prosergeant/seriesChecker/pkg/repository"
 )
 
 var ErrSeriesNotFound = errors.New("series not found")

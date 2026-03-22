@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/prosergeant/seriesChecker/internal/middleware"
-	"github.com/prosergeant/seriesChecker/internal/service"
+	"github.com/prosergeant/seriesChecker/pkg/middleware"
+	"github.com/prosergeant/seriesChecker/pkg/service"
 )
 
 type Handler struct {

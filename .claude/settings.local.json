@@ -2,7 +2,15 @@
   "permissions": {
     "allow": [
       "Read(//Users/sergejberendeev/**)",
-      "Bash(python3 -c \":*)"
+      "Bash(python3 -c \":*)",
+      "Bash(go build:*)",
+      "Bash(vercel --version)",
+      "Bash(vercel integration:*)",
+      "Bash(vercel env:*)",
+      "Bash(vercel logs:*)",
+      "Bash(curl -s \"https://kinopoiskapiunofficial.tech/api/v2.1/films/search-by-keyword?keyword=Breaking&page=1\" -H \"X-API-KEY: 4c863346-02b9-4a58-b94b-47c89a1752b5\")",
+      "Bash(curl -s https://series-checker.vercel.app/health)",
+      "Bash(curl -s \"https://series-checker.vercel.app/api/series/search?q=Breaking\")"
     ]
   }
 }
