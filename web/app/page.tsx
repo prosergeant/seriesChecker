@@ -13,7 +13,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Check, Eye, Clock, X, LogOut } from "lucide-react";
+import { Search, Check, Eye, Clock, X, LogOut, Moon, Sun } from "lucide-react";
+import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import { useAuth } from "@/components/auth-context";
 import { ProtectedRoute } from "@/components/protected-route";
@@ -280,6 +281,7 @@ function HomeContent() {
   const queryClient = useQueryClient();
   const { user, logout } = useAuth();
   const router = useRouter();
+  const { theme, setTheme } = useTheme();
 
   const { data: progress, isLoading } = useQuery({
     queryKey: ["progress", statusFilter],
@@ -338,6 +340,13 @@ function HomeContent() {
           <h1 className="text-2xl font-bold">SeriesTracker</h1>
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground">{user?.email}</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            >
+              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </Button>
             <Button variant="outline" size="sm" onClick={handleLogout}>
               <LogOut className="w-4 h-4 mr-2" />
               Выйти
