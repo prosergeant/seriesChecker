@@ -338,8 +338,8 @@ function HomeContent() {
       <header className="border-b">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold">SeriesTracker</h1>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground">{user?.email}</span>
+          <div className="flex items-center gap-2 sm:gap-4">
+            <span className="hidden sm:block text-sm text-muted-foreground">{user?.email}</span>
             <Button
               variant="ghost"
               size="sm"
@@ -383,10 +383,11 @@ function HomeContent() {
         </div>
 
         <div className="mb-6">
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap">
             <Button
               variant={statusFilter === "" ? "default" : "outline"}
               size="sm"
+              className="shrink-0"
               onClick={() => setStatusFilter("")}
             >
               Все
@@ -396,6 +397,7 @@ function HomeContent() {
                 key={key}
                 variant={statusFilter === key ? "default" : "outline"}
                 size="sm"
+                className="shrink-0"
                 onClick={() => setStatusFilter(key)}
               >
                 {label}
@@ -404,7 +406,7 @@ function HomeContent() {
           </div>
         </div>
 
-        <div className="grid gap-4 grid-cols-2">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
           {isLoading ? (
             <>
               {[...Array(4)].map((_, i) => (
