@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -25,6 +26,7 @@ type ServerConfig struct {
 }
 
 type DatabaseConfig struct {
+	URL      string // from DATABASE_URL (Neon/Vercel)
 	Host     string
 	Port     string
 	User     string
@@ -34,6 +36,7 @@ type DatabaseConfig struct {
 }
 
 type RedisConfig struct {
+	URL      string // from REDIS_URL (Upstash/Vercel)
 	Host     string
 	Port     string
 	Password string
@@ -69,6 +72,7 @@ func Load() *Config {
 			WriteTimeout: 15 * time.Second,
 		},
 		Database: DatabaseConfig{
+			URL:      getEnv("DATABASE_URL", ""),
 			Host:     getEnv("DB_HOST", "localhost"),
 			Port:     getEnv("DB_PORT", "5432"),
 			User:     getEnv("DB_USER", "seriestracker"),
@@ -77,6 +81,7 @@ func Load() *Config {
 			PoolSize: 20,
 		},
 		Redis: RedisConfig{
+			URL:      getEnv("REDIS_URL", ""),
 			Host:     getEnv("REDIS_HOST", "localhost"),
 			Port:     getEnv("REDIS_PORT", "6379"),
 			Password: getEnv("REDIS_PASSWORD", ""),
@@ -105,6 +110,17 @@ func splitComma(s string) []string {
 		}
 	}
 	return result
+}
+
+// DatabaseDSN returns DATABASE_URL if set, otherwise builds DSN from individual fields.
+func DatabaseDSN(cfg DatabaseConfig) string {
+	if cfg.URL != "" {
+		return cfg.URL
+	}
+	return fmt.Sprintf(
+		"postgres://%s:%s@%s:%s/%s?pool_max_conns=%d",
+		cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.DBName, cfg.PoolSize,
+	)
 }
 
 func getEnv(key, defaultValue string) string {
