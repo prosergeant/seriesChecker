@@ -10,7 +10,11 @@
       "Bash(vercel logs:*)",
       "Bash(curl -s \"https://kinopoiskapiunofficial.tech/api/v2.1/films/search-by-keyword?keyword=Breaking&page=1\" -H \"X-API-KEY: 4c863346-02b9-4a58-b94b-47c89a1752b5\")",
       "Bash(curl -s https://series-checker.vercel.app/health)",
-      "Bash(curl -s \"https://series-checker.vercel.app/api/series/search?q=Breaking\")"
+      "Bash(curl -s \"https://series-checker.vercel.app/api/series/search?q=Breaking\")",
+      "Bash(curl -v -X POST https://series-checker.vercel.app/api/auth/login -H \"Content-Type: application/json\" -d '{\"\"\"\"email\"\"\"\":\"\"\"\"smoke@test.com\"\"\"\",\"\"\"\"password\"\"\"\":\"\"\"\"test1234\"\"\"\"}')",
+      "Bash(vercel --prod)",
+      "Bash(curl -s -c /tmp/prod_cookies.txt -X POST https://series-checker.vercel.app/api/auth/login -H \"Content-Type: application/json\" -d '{\"\"email\"\":\"\"smoke@test.com\"\",\"\"password\"\":\"\"test1234\"\"}')",
+      "Bash(__NEW_LINE_d83b80bbc66abd54__ curl:*)"
     ]
   }
 }
