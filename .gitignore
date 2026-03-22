@@ -6,6 +6,7 @@
 # Binary
 bin/
 *.exe
+render_backup.sql
 
 # Next.js standalone (generated at build time)
 web/.next/standalone/

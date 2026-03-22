@@ -208,6 +208,11 @@ pg_dump --data-only --column-inserts -t series -t user_progress -U seriestracker
 docker run -i --rm postgres:16 psql "postgres://user:pass@host:5432/dbname" < updatable_data.sql
 ```
 
+```bash
+# сделать копию базы с сервера (рендер)
+docker run --rm postgres:18 pg_dump "external db url" > render_backup.sql
+```
+
 ### Утилиты для работы с PostgreSQL
 
 ```bash
