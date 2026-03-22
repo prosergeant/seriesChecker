@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/redis/go-redis/v9"
-	"github.com/prosergeant/seriesChecker/internal/config"
+	"github.com/prosergeant/seriesChecker/pkg/config"
 )
 
 type RedisClient struct {

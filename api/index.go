@@ -8,16 +8,16 @@ import (
 	"sync"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/prosergeant/seriesChecker/internal/config"
-	"github.com/prosergeant/seriesChecker/internal/database"
-	"github.com/prosergeant/seriesChecker/internal/database/sqlc"
-	authhandler "github.com/prosergeant/seriesChecker/internal/handler/auth"
-	progresshandler "github.com/prosergeant/seriesChecker/internal/handler/progress"
-	serieshandler "github.com/prosergeant/seriesChecker/internal/handler/series"
-	"github.com/prosergeant/seriesChecker/internal/kinopoisk"
-	"github.com/prosergeant/seriesChecker/internal/middleware"
-	"github.com/prosergeant/seriesChecker/internal/repository"
-	"github.com/prosergeant/seriesChecker/internal/service"
+	"github.com/prosergeant/seriesChecker/pkg/config"
+	"github.com/prosergeant/seriesChecker/pkg/database"
+	"github.com/prosergeant/seriesChecker/pkg/database/sqlc"
+	authhandler "github.com/prosergeant/seriesChecker/pkg/handler/auth"
+	progresshandler "github.com/prosergeant/seriesChecker/pkg/handler/progress"
+	serieshandler "github.com/prosergeant/seriesChecker/pkg/handler/series"
+	"github.com/prosergeant/seriesChecker/pkg/kinopoisk"
+	"github.com/prosergeant/seriesChecker/pkg/middleware"
+	"github.com/prosergeant/seriesChecker/pkg/repository"
+	"github.com/prosergeant/seriesChecker/pkg/service"
 )
 
 var (

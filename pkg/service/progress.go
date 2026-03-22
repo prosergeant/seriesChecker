@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/prosergeant/seriesChecker/internal/repository"
+	"github.com/prosergeant/seriesChecker/pkg/repository"
 )
 
 type ProgressService struct {

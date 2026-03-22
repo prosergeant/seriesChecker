@@ -40,3 +40,4 @@ logs/
 .security-key
 logs/security/
 .vercel
+.env*.local
