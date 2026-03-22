@@ -35,7 +35,9 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o server ./cmd/server
 # Final stage
 FROM alpine:3.19
 
-RUN apk add --no-cache ca-certificates postgresql-client bash nodejs
+RUN apk add --no-cache ca-certificates postgresql-client bash nodejs chromium
+
+ENV CHROMIUM_PATH=/usr/bin/chromium-browser
 
 WORKDIR /app
 

@@ -1,32 +1,35 @@
 # resolver.go
 
 ## Что делает
+Находит iframe-ссылки плеера для фильма/сериала через headless Chromium.
 
-Сервис для автоматического нахождения источника видео по Kinopoisk ID.
+Маршрут: `GET /api/series/{id}/resolve`
 
-Алгоритм:
-1. Формирует URL вида `https://www.sspoisk.ru/series/{id}` или `.../film/{id}`
-2. Делает HTTP GET с браузерными заголовками, следует редиректам (до 10)
-3. Читает итоговый HTML (лимит 5MB)
-4. Парсит регулярными выражениями:
-   - `<iframe src="...">` — вложенные плееры
-   - `<video src="...">` / `<source src="...">` — прямые видео теги
-   - `<script>` теги — ищет URL с `.m3u8`, `.mp4`, `.mpd`
-   - Скрипты с ключевыми словами плеера (`playerConfig`, `hlsUrl`, и др.) — сохраняет первые 500 символов как подсказку
-5. Дедуплицирует результаты и возвращает `Result`
+## Логика
+1. Формирует URL `https://www.sspoisk.ru/{series|film}/{kinopoisk_id}`
+2. Открывает страницу в headless Chromium (через `chromedp`)
+3. Убирает `navigator.webdriver` до навигации (анти-бот детекция)
+4. Ждёт до 20 секунд появления `iframe.kinobox_iframe[src]` через JS-poll каждые 500мс
+5. Извлекает src всех `iframe.kinobox_iframe[src]` через `querySelectorAll`
+6. Возвращает `{ final_url, iframes, video_urls }`
 
-## Возвращаемая структура
+## Почему chromedp (было переписано с HTTP-клиента)
+Целевой сайт использует Kinobox — JS-агрегатор плееров. При обычном HTTP-запросе HTML содержит пустой `<div class="kinobox">`, iframe загружается через JS.
 
-```json
-{
-  "final_url": "https://fbfree.lat/series/1118138",
-  "iframes": ["https://..."],
-  "video_urls": ["https://.../*.m3u8"],
-  "scripts_with_video": ["playerConfig = {..."]
-}
+### Ключевые решения при отладке
+- `WaitVisible('iframe')` не работало — срабатывало на рекламный iframe раньше Kinobox
+- `querySelectorAll('iframe').src` давало пустые строки — src устанавливается JS-ом асинхронно
+- Решение: `Poll('iframe.kinobox_iframe[src] !== null')` + `querySelectorAll('iframe.kinobox_iframe[src]')`
+- `disable-blink-features=AutomationControlled` + удаление `navigator.webdriver` — нужно чтобы Kinobox не детектировал headless
+
+## Архитектура
+- Один shared `ExecAllocator` на весь сервер (один процесс Chrome)
+- На каждый запрос — новый browser context (новая вкладка), закрывается через defer
+- `Resolver.Close()` — освобождает Chrome-процесс, вызывать при shutdown сервера
+
+## Docker
+В Alpine финальном образе требуется `chromium`:
 ```
-
-## Что было добавлено
-
-Новый пакет, создан для реализации фичи автоматического определения источника видео
-без необходимости вручную открывать внешний сайт. Использует только стандартную библиотеку Go.
+RUN apk add --no-cache ... chromium
+ENV CHROMIUM_PATH=/usr/bin/chromium-browser
+```
