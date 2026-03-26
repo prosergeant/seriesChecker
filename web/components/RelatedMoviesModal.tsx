@@ -65,8 +65,6 @@ export function RelatedMoviesModal({
   const handleAddToProgress = async (movie: SimilarMovie | RelationMovie) => {
     const id = "filmId" in movie ? movie.filmId : movie.kinopoiskId;
     const movieTitle = movie.nameRu || movie.nameEn || movie.nameOriginal || "Без названия";
-    const poster = movie.posterUrl;
-
     try {
       await api.progress.update({
         series_id: id,
@@ -158,7 +156,6 @@ export function RelatedMoviesModal({
                       src={poster}
                       alt={movieTitle}
                       className="w-full aspect-[2/3]"
-                      imgClassName="aspect-[2/3]"
                     />
                     <div className={cn("absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent transition-opacity", "hover-hover:opacity-0 hover-hover:group-hover:opacity-100 hover-hover:group-focus-within:opacity-100", "hover-none:hidden")} />
                     <div className={cn("p-2", "hover-hover:absolute hover-hover:bottom-0 hover-hover:left-0 hover-hover:right-0 hover-hover:translate-y-full hover-hover:group-hover:translate-y-0 hover-hover:group-focus-within:translate-y-0 hover-hover:transition-transform", "hover-none:relative hover-none:bg-muted")}>
