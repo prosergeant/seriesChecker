@@ -16,7 +16,7 @@ export function PosterImage({ src, alt, className, imgClassName }: PosterImagePr
 
   if (!src) {
     return (
-      <div className={cn('flex items-center justify-center bg-muted', className)}>
+      <div data-testid="poster-placeholder" className={cn('flex items-center justify-center bg-muted', className)}>
         <Film className="w-8 h-8 text-muted-foreground" />
       </div>
     );
@@ -24,12 +24,13 @@ export function PosterImage({ src, alt, className, imgClassName }: PosterImagePr
 
   return (
     <div className={cn('relative', className)}>
-      {!loaded && <Skeleton className="absolute inset-0 rounded-none" />}
+      {!loaded && <Skeleton data-testid="poster-skeleton" className="absolute inset-0 rounded-none" />}
       <img
         src={src}
         alt={alt}
         className={cn('w-full h-full object-cover', imgClassName)}
         onLoad={() => setLoaded(true)}
+        onError={() => setLoaded(true)}
       />
     </div>
   );

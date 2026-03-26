@@ -3,30 +3,35 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { PosterImage } from './PosterImage';
 
 describe('PosterImage', () => {
-  it('shows Film icon placeholder when src is absent', () => {
+  it('shows Film icon placeholder when src is null', () => {
     render(<PosterImage src={null} alt="test" />);
-    // Film icon from lucide-react renders as svg with a specific aria role or test-id
-    // No img element should be present
     expect(screen.queryByRole('img')).toBeNull();
-    // The placeholder container is visible
-    expect(document.querySelector('svg')).toBeTruthy(); // Film icon
+    expect(screen.getByTestId('poster-placeholder')).toBeTruthy();
+  });
+
+  it('shows Film icon placeholder when src is undefined', () => {
+    render(<PosterImage alt="test" />);
+    expect(screen.queryByRole('img')).toBeNull();
+    expect(screen.getByTestId('poster-placeholder')).toBeTruthy();
   });
 
   it('shows skeleton while image is loading', () => {
     render(<PosterImage src="http://example.com/poster.jpg" alt="test" />);
-    // Skeleton should be visible before onLoad fires
-    // Skeleton renders as a div with animate-pulse class
-    const skeleton = document.querySelector('[class*="animate-pulse"]');
-    expect(skeleton).toBeTruthy();
+    expect(screen.queryByTestId('poster-skeleton')).toBeTruthy();
   });
 
   it('hides skeleton after image loads', () => {
     render(<PosterImage src="http://example.com/poster.jpg" alt="test" />);
     const img = screen.getByRole('img');
     fireEvent.load(img);
-    // After load, no skeleton
-    const skeleton = document.querySelector('[class*="animate-pulse"]');
-    expect(skeleton).toBeNull();
+    expect(screen.queryByTestId('poster-skeleton')).toBeNull();
+  });
+
+  it('hides skeleton after image load error', () => {
+    render(<PosterImage src="http://example.com/poster.jpg" alt="test" />);
+    const img = screen.getByRole('img');
+    fireEvent.error(img);
+    expect(screen.queryByTestId('poster-skeleton')).toBeNull();
   });
 
   it('renders img with correct src and alt', () => {
