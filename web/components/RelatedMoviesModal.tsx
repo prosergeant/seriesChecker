@@ -11,6 +11,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { PosterImage } from "@/components/ui/PosterImage";
 import { Play, Plus, MoreHorizontal, Film, Link2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -64,8 +65,6 @@ export function RelatedMoviesModal({
   const handleAddToProgress = async (movie: SimilarMovie | RelationMovie) => {
     const id = "filmId" in movie ? movie.filmId : movie.kinopoiskId;
     const movieTitle = movie.nameRu || movie.nameEn || movie.nameOriginal || "Без названия";
-    const poster = movie.posterUrl;
-
     try {
       await api.progress.update({
         series_id: id,
@@ -153,17 +152,11 @@ export function RelatedMoviesModal({
                     }}
                     className={cn("group relative rounded-lg bg-muted outline-none focus-visible:ring-3 focus-visible:ring-ring/50", "hover-hover:overflow-hidden", "hover-none:overflow-visible")}
                   >
-                    {poster ? (
-                      <img
-                        src={poster}
-                        alt={movieTitle}
-                        className="w-full aspect-[2/3] object-cover"
-                      />
-                    ) : (
-                      <div className="w-full aspect-[2/3] flex items-center justify-center bg-muted">
-                        <Film className="w-8 h-8 text-muted-foreground" />
-                      </div>
-                    )}
+                    <PosterImage
+                      src={poster}
+                      alt={movieTitle}
+                      className="w-full aspect-[2/3]"
+                    />
                     <div className={cn("absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent transition-opacity", "hover-hover:opacity-0 hover-hover:group-hover:opacity-100 hover-hover:group-focus-within:opacity-100", "hover-none:hidden")} />
                     <div className={cn("p-2", "hover-hover:absolute hover-hover:bottom-0 hover-hover:left-0 hover-hover:right-0 hover-hover:translate-y-full hover-hover:group-hover:translate-y-0 hover-hover:group-focus-within:translate-y-0 hover-hover:transition-transform", "hover-none:relative hover-none:bg-muted")}>
                       <div className={cn("text-xs font-medium line-clamp-2 mb-1", "hover-hover:text-white", "hover-none:text-foreground")}>
