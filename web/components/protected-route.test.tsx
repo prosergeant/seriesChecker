@@ -20,20 +20,20 @@ beforeEach(() => {
 });
 
 describe('ProtectedRoute', () => {
-  it('shows spinner when isLoading = true', () => {
+  it('показывает спиннер когда isLoading = true', () => {
     mockUseAuth.mockReturnValue({ isLoading: true, isAuthenticated: false });
 
     const { container } = render(
       <ProtectedRoute><span>protected</span></ProtectedRoute>
     );
 
-    // Spinner (Loader2) is rendered, children are not
+    // Спиннер (Loader2) отрендерен, children не показаны
     expect(screen.queryByText('protected')).toBeNull();
-    // Loader2 renders an svg
+    // Loader2 рендерит svg
     expect(container.querySelector('svg')).toBeTruthy();
   });
 
-  it('redirects to /login when not authenticated', () => {
+  it('редиректит на /login если не авторизован', () => {
     mockUseAuth.mockReturnValue({ isLoading: false, isAuthenticated: false });
 
     render(<ProtectedRoute><span>protected</span></ProtectedRoute>);
@@ -42,7 +42,7 @@ describe('ProtectedRoute', () => {
     expect(screen.queryByText('protected')).toBeNull();
   });
 
-  it('renders children when authenticated', () => {
+  it('рендерит children если авторизован', () => {
     mockUseAuth.mockReturnValue({ isLoading: false, isAuthenticated: true });
 
     render(<ProtectedRoute><span>protected</span></ProtectedRoute>);

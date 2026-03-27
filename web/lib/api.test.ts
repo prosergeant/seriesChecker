@@ -24,7 +24,7 @@ beforeEach(() => {
 });
 
 describe('api.auth', () => {
-  it('login — sends POST to /api/auth/login with credentials', async () => {
+  it('login — отправляет POST на /api/auth/login с credentials', async () => {
     mockFetch.mockReturnValueOnce(okResponse({ message: 'ok', session_id: 'abc' }));
 
     await api.auth.login('user@test.com', 'pass123');
@@ -36,7 +36,7 @@ describe('api.auth', () => {
     expect(opts.credentials).toBe('include');
   });
 
-  it('me — sends GET to /api/auth/me with credentials', async () => {
+  it('me — отправляет GET на /api/auth/me с credentials', async () => {
     mockFetch.mockReturnValueOnce(okResponse({ id: '1', email: 'user@test.com' }));
 
     const result = await api.auth.me();
@@ -47,13 +47,13 @@ describe('api.auth', () => {
     expect(result.email).toBe('user@test.com');
   });
 
-  it('throws error with server message on non-ok response', async () => {
+  it('бросает ошибку с сообщением сервера при !ok ответе', async () => {
     mockFetch.mockReturnValueOnce(errorResponse(401, { error: 'Unauthorized' }));
 
     await expect(api.auth.me()).rejects.toThrow('Unauthorized');
   });
 
-  it('logout — sends POST to /api/auth/logout', async () => {
+  it('logout — отправляет POST на /api/auth/logout', async () => {
     mockFetch.mockReturnValueOnce(okResponse({}));
 
     await api.auth.logout();
@@ -65,7 +65,7 @@ describe('api.auth', () => {
 });
 
 describe('api.progress', () => {
-  it('getAll — no status param when not provided', async () => {
+  it('getAll — без параметра status если не передан', async () => {
     mockFetch.mockReturnValueOnce(okResponse([]));
 
     await api.progress.getAll();
@@ -75,7 +75,7 @@ describe('api.progress', () => {
     expect(url).not.toContain('?status');
   });
 
-  it('getAll — adds ?status=watching when provided', async () => {
+  it('getAll — добавляет ?status=watching когда передан', async () => {
     mockFetch.mockReturnValueOnce(okResponse([]));
 
     await api.progress.getAll('watching');
@@ -84,7 +84,7 @@ describe('api.progress', () => {
     expect(url).toContain('?status=watching');
   });
 
-  it('delete — sends DELETE to /api/progress/:id', async () => {
+  it('delete — отправляет DELETE на /api/progress/:id', async () => {
     mockFetch.mockReturnValueOnce(okResponse({ message: 'deleted' }));
 
     await api.progress.delete(42);
@@ -96,7 +96,7 @@ describe('api.progress', () => {
 });
 
 describe('api.series', () => {
-  it('search — encodes query param', async () => {
+  it('search — кодирует кириллицу в параметре запроса', async () => {
     mockFetch.mockReturnValueOnce(okResponse([]));
 
     await api.series.search('во все тяжкие');
