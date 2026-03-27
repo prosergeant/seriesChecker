@@ -1,28 +1,28 @@
 # PosterImage
 
-## What the file does
+## Что делает файл
 
-`PosterImage.tsx` is a reusable React component that renders a series/movie poster image with three distinct states:
+`PosterImage.tsx` — переиспользуемый React-компонент для отображения постера сериала/фильма с тремя состояниями:
 
-1. **No src (absent or null):** renders a centered `Film` icon (lucide-react) on a `bg-muted` background as a placeholder.
-2. **src present, loading:** renders the `<img>` element alongside an absolutely-positioned `Skeleton` (animate-pulse) overlay until the image fires its `onLoad` event.
-3. **src present, loaded:** the skeleton disappears and the fully-loaded `<img>` is shown.
+1. **src отсутствует (null или undefined):** отображает иконку `Film` (lucide-react) по центру на фоне `bg-muted` в качестве плейсхолдера.
+2. **src передан, загружается:** рендерит `<img>` с абсолютно позиционированным `Skeleton` (animate-pulse) поверх него — до срабатывания события `onLoad`.
+3. **src передан, загружен:** skeleton исчезает, отображается загруженное изображение.
 
-## Props
+## Пропсы
 
-| Prop | Type | Description |
-|------|------|-------------|
-| `src` | `string \| null \| undefined` | URL of the poster image |
-| `alt` | `string` | Alt text for the img element |
-| `className` | `string?` | Extra classes applied to the outer wrapper |
-| `imgClassName` | `string?` | Extra classes applied to the `<img>` tag |
+| Проп | Тип | Описание |
+|------|-----|----------|
+| `src` | `string \| null \| undefined` | URL постера |
+| `alt` | `string` | Alt-текст для элемента img |
+| `className` | `string?` | Дополнительные классы для внешней обёртки |
+| `imgClassName` | `string?` | Дополнительные классы для тега `<img>` |
 
-## What was changed and why
+## Что изменено и почему
 
-**Initial creation (TDD):** This file was created as part of a Test-Driven Development exercise. The test file `PosterImage.test.tsx` was written first and confirmed to fail, then this implementation was written to make all 4 tests pass. The component extracts a common poster-display pattern used across the app (search results, progress list) into a single reusable unit with proper loading UX.
+**Первоначальное создание (TDD):** файл создан в рамках цикла Test-Driven Development. Сначала написан тест `PosterImage.test.tsx` и подтверждено, что он падает; затем написана реализация, которая делает все тесты зелёными. Компонент выносит общий паттерн отображения постера (список прогресса, модалка похожих) в единый переиспользуемый блок с корректным loading UX.
 
-**Code review fixes:**
+**Правки после code review:**
 
-- **Added `onError` handler** (`onError={() => setLoaded(true)}`): previously a 404 or network-failed image URL would leave `loaded` as `false` indefinitely, causing the skeleton to animate forever. The error handler dismisses the skeleton so the browser's native broken-image indicator is visible instead.
-- **Added `data-testid="poster-skeleton"`** to `<Skeleton>` and **`data-testid="poster-placeholder"`** to the placeholder `<div>`: allows tests to query elements by stable test IDs rather than fragile class-name selectors (e.g. `[class*="animate-pulse"]`).
-- Updated `skeleton.tsx` to accept and spread `React.HTMLAttributes<HTMLDivElement>` so forwarded props like `data-testid` reach the underlying `<div>`.
+- **Добавлен обработчик `onError`** (`onError={() => setLoaded(true)}`): ранее при 404 или сетевой ошибке `loaded` оставался `false` бесконечно, и skeleton продолжал пульсировать. Обработчик ошибки скрывает skeleton, чтобы был виден нативный индикатор сломанного изображения браузера.
+- **Добавлен `data-testid="poster-skeleton"`** на `<Skeleton>` и **`data-testid="poster-placeholder"`** на плейсхолдер `<div>`: позволяет тестам находить элементы по стабильным test ID, а не по хрупким селекторам по классу (например `[class*="animate-pulse"]`).
+- В `skeleton.tsx` тип пропсов изменён на `React.HTMLAttributes<HTMLDivElement>` со spread, чтобы props типа `data-testid` доходили до вложенного `<div>`.

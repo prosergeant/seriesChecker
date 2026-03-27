@@ -3,38 +3,38 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { PosterImage } from './PosterImage';
 
 describe('PosterImage', () => {
-  it('shows Film icon placeholder when src is null', () => {
+  it('показывает плейсхолдер Film icon когда src равен null', () => {
     render(<PosterImage src={null} alt="test" />);
     expect(screen.queryByRole('img')).toBeNull();
     expect(screen.getByTestId('poster-placeholder')).toBeTruthy();
   });
 
-  it('shows Film icon placeholder when src is undefined', () => {
+  it('показывает плейсхолдер Film icon когда src не передан', () => {
     render(<PosterImage alt="test" />);
     expect(screen.queryByRole('img')).toBeNull();
     expect(screen.getByTestId('poster-placeholder')).toBeTruthy();
   });
 
-  it('shows skeleton while image is loading', () => {
+  it('показывает skeleton пока изображение загружается', () => {
     render(<PosterImage src="http://example.com/poster.jpg" alt="test" />);
     expect(screen.queryByTestId('poster-skeleton')).toBeTruthy();
   });
 
-  it('hides skeleton after image loads', () => {
+  it('скрывает skeleton после загрузки изображения', () => {
     render(<PosterImage src="http://example.com/poster.jpg" alt="test" />);
     const img = screen.getByRole('img');
     fireEvent.load(img);
     expect(screen.queryByTestId('poster-skeleton')).toBeNull();
   });
 
-  it('hides skeleton after image load error', () => {
+  it('скрывает skeleton при ошибке загрузки изображения', () => {
     render(<PosterImage src="http://example.com/poster.jpg" alt="test" />);
     const img = screen.getByRole('img');
     fireEvent.error(img);
     expect(screen.queryByTestId('poster-skeleton')).toBeNull();
   });
 
-  it('renders img with correct src and alt', () => {
+  it('рендерит img с корректными src и alt', () => {
     render(<PosterImage src="http://example.com/poster.jpg" alt="My Poster" />);
     const img = screen.getByRole('img');
     expect(img).toHaveAttribute('src', 'http://example.com/poster.jpg');
