@@ -3,7 +3,7 @@ import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AuthProvider, useAuth } from './auth-context';
 
-// Mock api module
+// Мок api модуля
 vi.mock('@/lib/api', () => ({
   api: {
     auth: {
@@ -15,7 +15,7 @@ vi.mock('@/lib/api', () => ({
   },
 }));
 
-// Mock sonner toast
+// Мок sonner toast
 vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
@@ -27,7 +27,7 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-// Helper component that exposes auth context state
+// Вспомогательный компонент, отображающий состояние auth context в DOM
 function AuthConsumer() {
   const { user, isLoading, isAuthenticated } = useAuth();
   return (
@@ -51,7 +51,7 @@ function AuthWithActions() {
 }
 
 describe('AuthProvider', () => {
-  it('calls api.auth.me on mount to check session', async () => {
+  it('вызывает api.auth.me при монтировании для проверки сессии', async () => {
     mockApi.me.mockResolvedValue({ id: '1', email: 'x@x.com' });
 
     render(<AuthProvider><AuthConsumer /></AuthProvider>);
@@ -59,7 +59,7 @@ describe('AuthProvider', () => {
     await waitFor(() => expect(mockApi.me).toHaveBeenCalledTimes(1));
   });
 
-  it('isAuthenticated = true when me() returns a user', async () => {
+  it('isAuthenticated = true когда me() возвращает пользователя', async () => {
     mockApi.me.mockResolvedValue({ id: '1', email: 'x@x.com' });
 
     render(<AuthProvider><AuthConsumer /></AuthProvider>);
@@ -70,7 +70,7 @@ describe('AuthProvider', () => {
     expect(screen.getByTestId('email').textContent).toBe('x@x.com');
   });
 
-  it('isAuthenticated = false when me() throws (not logged in)', async () => {
+  it('isAuthenticated = false когда me() бросает ошибку (не авторизован)', async () => {
     mockApi.me.mockRejectedValue(new Error('401'));
 
     render(<AuthProvider><AuthConsumer /></AuthProvider>);
@@ -81,10 +81,10 @@ describe('AuthProvider', () => {
     expect(screen.getByTestId('authenticated').textContent).toBe('false');
   });
 
-  it('login() calls api.auth.login and then re-checks session', async () => {
+  it('login() вызывает api.auth.login и затем перепроверяет сессию', async () => {
     mockApi.me
-      .mockRejectedValueOnce(new Error('401'))   // initial check
-      .mockResolvedValueOnce({ id: '1', email: 'a@b.com' }); // after login
+      .mockRejectedValueOnce(new Error('401'))   // первичная проверка
+      .mockResolvedValueOnce({ id: '1', email: 'a@b.com' }); // после логина
     mockApi.login.mockResolvedValue({ message: 'ok', session_id: 'abc' });
 
     render(<AuthProvider><AuthWithActions /></AuthProvider>);
@@ -103,7 +103,7 @@ describe('AuthProvider', () => {
     );
   });
 
-  it('logout() calls api.auth.logout and sets user to null', async () => {
+  it('logout() вызывает api.auth.logout и сбрасывает пользователя в null', async () => {
     mockApi.me.mockResolvedValue({ id: '1', email: 'a@b.com' });
     mockApi.logout.mockResolvedValue({});
 
