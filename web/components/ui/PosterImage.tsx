@@ -18,8 +18,9 @@ export function PosterImage({
   imgClassName,
 }: PosterImageProps) {
   const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
 
-  if (!src) {
+  if (!src || error) {
     return (
       <div
         data-testid="poster-placeholder"
@@ -43,7 +44,7 @@ export function PosterImage({
         alt={alt}
         className={cn("w-full h-full object-cover", imgClassName)}
         onLoad={() => setLoaded(true)}
-        onError={() => setLoaded(true)}
+        onError={() => setError(true)}
       />
     </div>
   );

@@ -34,6 +34,14 @@ describe('PosterImage', () => {
     expect(screen.queryByTestId('poster-skeleton')).toBeNull();
   });
 
+  it('показывает плейсхолдер Film icon при ошибке загрузки изображения (404)', () => {
+    render(<PosterImage src="http://example.com/poster.jpg" alt="test" />);
+    const img = screen.getByRole('img');
+    fireEvent.error(img);
+    expect(screen.queryByRole('img')).toBeNull();
+    expect(screen.getByTestId('poster-placeholder')).toBeTruthy();
+  });
+
   it('рендерит img с корректными src и alt', () => {
     render(<PosterImage src="http://example.com/poster.jpg" alt="My Poster" />);
     const img = screen.getByRole('img');
