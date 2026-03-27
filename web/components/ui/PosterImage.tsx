@@ -1,8 +1,8 @@
-'use client';
-import { useState } from 'react';
-import { Film } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Skeleton } from './skeleton';
+"use client";
+import { useState } from "react";
+import { Film } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Loader2 } from "lucide-react";
 
 interface PosterImageProps {
   src?: string | null;
@@ -11,26 +11,40 @@ interface PosterImageProps {
   imgClassName?: string;
 }
 
-export function PosterImage({ src, alt, className, imgClassName }: PosterImageProps) {
+export function PosterImage({
+  src,
+  alt,
+  className,
+  imgClassName,
+}: PosterImageProps) {
   const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
 
-  if (!src) {
+  if (!src || error) {
     return (
-      <div data-testid="poster-placeholder" className={cn('flex items-center justify-center bg-muted', className)}>
+      <div
+        data-testid="poster-placeholder"
+        className={cn("flex items-center justify-center bg-muted", className)}
+      >
         <Film className="w-8 h-8 text-muted-foreground" />
       </div>
     );
   }
 
   return (
-    <div className={cn('relative', className)}>
-      {!loaded && <Skeleton data-testid="poster-skeleton" className="absolute inset-0 rounded-none" />}
+    <div className={cn("relative", className)}>
+      {!loaded && (
+        <Loader2
+          data-testid="poster-skeleton"
+          className="absolute inset-0 rounded-none m-auto animate-spin"
+        />
+      )}
       <img
         src={src}
         alt={alt}
-        className={cn('w-full h-full object-cover', imgClassName)}
+        className={cn("w-full h-full object-cover", imgClassName)}
         onLoad={() => setLoaded(true)}
-        onError={() => setLoaded(true)}
+        onError={() => setError(true)}
       />
     </div>
   );
