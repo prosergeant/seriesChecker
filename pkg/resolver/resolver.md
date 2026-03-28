@@ -1,26 +1,47 @@
 # resolver.go
 
 ## Что делает
-Находит iframe-ссылки плеера для фильма/сериала через headless Chromium.
+Через headless Chromium (chromedp) перехватывает M3U8 URL HLS-потока и возвращает HTML-страницу с HLS.js плеером, который воспроизводит поток через прокси-эндпоинт сервера.
 
 Маршрут: `GET /api/series/{id}/resolve`
 
-## Логика
-1. Формирует URL `https://www.sspoisk.ru/{series|film}/{kinopoisk_id}`
-2. Открывает страницу в headless Chromium (через `chromedp`)
-3. Убирает `navigator.webdriver` до навигации (анти-бот детекция)
-4. Ждёт до 20 секунд появления `iframe.kinobox_iframe[src]` через JS-poll каждые 500мс
-5. Извлекает src всех `iframe.kinobox_iframe[src]` через `querySelectorAll`
-6. Возвращает `{ final_url, iframes, video_urls }`
+## Архитектурный подход (текущий)
 
-## Почему chromedp (было переписано с HTTP-клиента)
-Целевой сайт использует Kinobox — JS-агрегатор плееров. При обычном HTTP-запросе HTML содержит пустой `<div class="kinobox">`, iframe загружается через JS.
+1. Открывает новую вкладку в общем браузерном процессе
+2. Устанавливает заголовки (`Referer`, `Sec-Fetch-*`) и инжектирует init-скрипт
+3. Навигирует к URL плеера
+4. Ждёт события `network.EventResponseReceived` с URL содержащим `.m3u8` (максимум 25 секунд)
+5. Возвращает простую HTML-страницу с HLS.js и перехваченным M3U8 URL
 
-### Ключевые решения при отладке
-- `WaitVisible('iframe')` не работало — срабатывало на рекламный iframe раньше Kinobox
-- `querySelectorAll('iframe').src` давало пустые строки — src устанавливается JS-ом асинхронно
-- Решение: `Poll('iframe.kinobox_iframe[src] !== null')` + `querySelectorAll('iframe.kinobox_iframe[src]')`
-- `disable-blink-features=AutomationControlled` + удаление `navigator.webdriver` — нужно чтобы Kinobox не детектировал headless
+## Почему именно перехват M3U8 (а не возврат HTML плеера)
+
+Предыдущий подход (возврат HTML страницы плеера) не работал из-за двух проблем:
+- **Cross-origin SVG `<use>`**: Chrome блокирует `<use href="https://theatre.stloadi.live/images/allplay.svg#...">` из iframe на localhost → 50+ ошибок в консоли
+- **CORS на API плеера**: плеер делал запрос к CDN API для получения `id_file`, CORS блокировал → `TypeError: Cannot read properties of undefined (reading 'length')`
+
+Решение: перехватить M3U8 URL в chromedp до возникновения CORS-проблем.
+
+## Обход защиты theatre.stloadi.live
+
+**Слой 1 — серверный (Referer):** требует наличия `Referer` заголовка.
+Решение: `network.SetExtraHTTPHeaders` с `Referer: https://theatre.stloadi.live` + `Sec-Fetch-*`.
+
+**Слой 2 — клиентский JS (isFramed):**
+```javascript
+var isFramed = false;
+try { isFramed = window != window.top || ... } catch(e) { isFramed = true; }
+if (!isFramed) { /* заменяет всю страницу на ошибку */ }
+```
+Решение: `page.AddScriptToEvaluateOnNewDocument` запускается ДО скриптов страницы:
+```javascript
+Object.defineProperty(window, 'isFramed', {value: true, writable: false, configurable: false})
+```
+
+## Проблема IP-привязанных CDN-токенов
+
+M3U8 URL содержит токен, привязанный к IP-адресу запрашивающего. Chromedp делает запрос с IP сервера — токен валиден для сервера. Если отдать URL напрямую браузеру пользователя (другой IP) — CDN вернёт ошибку.
+
+Решение: HLS.js кастомный загрузчик (`ProxyLoader`) маршрутизирует все запросы (m3u8 + ts-сегменты) через `/api/hls-proxy?url=...` — всё идёт через сервер с нужным IP.
 
 ## Архитектура
 - Один shared `ExecAllocator` на весь сервер (один процесс Chrome)
