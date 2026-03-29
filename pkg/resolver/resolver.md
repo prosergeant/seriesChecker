@@ -1,7 +1,7 @@
 # resolver.go
 
 ## Что делает
-Через headless Chromium (chromedp) перехватывает M3U8 URL HLS-потока и возвращает HTML-страницу с HLS.js плеером, который воспроизводит поток через прокси-эндпоинт сервера.
+Через headless Chromium (chromedp) перехватывает M3U8 URL HLS-потока и возвращает HTML-страницу оригинального плеера theatre.stloadi.live, пропатченную для работы через прокси.
 
 Маршрут: `GET /api/series/{id}/resolve`
 
@@ -11,15 +11,29 @@
 2. Устанавливает заголовки (`Referer`, `Sec-Fetch-*`) и инжектирует init-скрипт
 3. Навигирует к URL плеера
 4. Ждёт события `network.EventResponseReceived` с URL содержащим `.m3u8` (максимум 25 секунд)
-5. Возвращает простую HTML-страницу с HLS.js и перехваченным M3U8 URL
+5. Захватывает HTML плеера (уже инициализированного) через `chromedp.OuterHTML`
+6. Патчит HTML через `patchHTML()` для работы в контексте localhost
+7. Fallback: если HTML не удалось захватить, возвращает простой HLS.js плеер с m3u8 URL
 
-## Почему именно перехват M3U8 (а не возврат HTML плеера)
+## patchHTML — проксирование ресурсов плеера
 
-Предыдущий подход (возврат HTML страницы плеера) не работал из-за двух проблем:
-- **Cross-origin SVG `<use>`**: Chrome блокирует `<use href="https://theatre.stloadi.live/images/allplay.svg#...">` из iframe на localhost → 50+ ошибок в консоли
-- **CORS на API плеера**: плеер делал запрос к CDN API для получения `id_file`, CORS блокировал → `TypeError: Cannot read properties of undefined (reading 'length')`
+HTML плеера theatre.stloadi.live патчится в несколько этапов:
 
-Решение: перехватить M3U8 URL в chromedp до возникновения CORS-проблем.
+1. **`<base href="/api/theatre-static/">`** — relative URL идут через наш прокси статики
+2. **Удаление SRI-хешей** и blob src (стейл из chromedp-сессии)
+3. **Замена абсолютных URL** `https://theatre.stloadi.live/` → `/api/theatre-static/`
+4. **Замена абсолютных путей** `"/build/`, `"/images/`, `"/fonts/` → проксированные
+5. **Замена CSS `url()`** без кавычек
+6. **Inject proxy script** — перехватывает fetch/XHR:
+   - `theatre.stloadi.live/*` → `/api/theatre-proxy` (API-вызовы плеера, обход CORS)
+   - `*.m3u8 / *.ts` → `/api/hls-proxy` (CDN требует Origin сервера)
+   - `isFramed` lock (плеер не показывает ошибку "не в iframe")
+
+## Известные ограничения
+
+- **Видео не воспроизводится**: плеер при реинициализации читает `window.location` для получения токенов (`token_movie`, `token`), но URL теперь `localhost:8080/api/series/.../resolve`, а не оригинальный URL с параметрами. Нужно инжектировать токены в JS-контекст.
+- **blob URL**: `URL.createObjectURL()` создаёт blob: с origin theatre, а документ на localhost — неизбежно при проксировании
+- **TypeError в setCaptionsMenu**: внутренний баг минифицированного JS плеера
 
 ## Обход защиты theatre.stloadi.live
 
@@ -32,16 +46,11 @@ var isFramed = false;
 try { isFramed = window != window.top || ... } catch(e) { isFramed = true; }
 if (!isFramed) { /* заменяет всю страницу на ошибку */ }
 ```
-Решение: `page.AddScriptToEvaluateOnNewDocument` запускается ДО скриптов страницы:
-```javascript
-Object.defineProperty(window, 'isFramed', {value: true, writable: false, configurable: false})
-```
+Решение: `page.AddScriptToEvaluateOnNewDocument` + proxyScript inject.
 
 ## Проблема IP-привязанных CDN-токенов
 
-M3U8 URL содержит токен, привязанный к IP-адресу запрашивающего. Chromedp делает запрос с IP сервера — токен валиден для сервера. Если отдать URL напрямую браузеру пользователя (другой IP) — CDN вернёт ошибку.
-
-Решение: HLS.js кастомный загрузчик (`ProxyLoader`) маршрутизирует все запросы (m3u8 + ts-сегменты) через `/api/hls-proxy?url=...` — всё идёт через сервер с нужным IP.
+M3U8 URL содержит токен, привязанный к IP-адресу запрашивающего. Решение: HLS.js кастомный загрузчик (`ProxyLoader`) маршрутизирует все запросы через `/api/hls-proxy?url=...`.
 
 ## Архитектура
 - Один shared `ExecAllocator` на весь сервер (один процесс Chrome)

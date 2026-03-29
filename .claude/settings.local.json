@@ -23,7 +23,16 @@
       "mcp__plugin_playwright_playwright__browser_console_messages",
       "mcp__plugin_playwright_playwright__browser_take_screenshot",
       "Bash(npm run:*)",
-      "mcp__plugin_playwright_playwright__browser_resize"
+      "mcp__plugin_playwright_playwright__browser_resize",
+      "mcp__plugin_playwright_playwright__browser_network_requests",
+      "Bash(curl -s http://localhost:8080/api/series/861614/resolve)",
+      "mcp__plugin_playwright_playwright__browser_evaluate",
+      "mcp__plugin_playwright_playwright__browser_wait_for",
+      "Bash(agent-browser --auto-connect open http://localhost:8080)",
+      "Bash(npx agent-browser:*)",
+      "Bash(agent-browser open:*)",
+      "Bash(agent-browser wait:*)",
+      "Bash(agent-browser screenshot:*)"
     ]
   }
 }

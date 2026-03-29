@@ -101,7 +101,19 @@ func main() {
 	mux.HandleFunc("GET /api/series/{id}/similar", seriesHandler.GetSimilar)
 	mux.HandleFunc("GET /api/series/{id}/relations", seriesHandler.GetRelations)
 	mux.HandleFunc("GET /api/series/{id}/resolve", seriesHandler.Resolve)
+	mux.HandleFunc("GET /api/series/{id}/resolveV2", seriesHandler.ResolveV2)
+	mux.HandleFunc("GET /api/series/{id}/player", seriesHandler.Player)
+	mux.HandleFunc("GET /api/series/stream", seriesHandler.Stream)
 	mux.HandleFunc("GET /api/hls-proxy", seriesHandler.HLSProxy)
+	mux.HandleFunc("/api/theatre-proxy", seriesHandler.TheatreProxy)
+	mux.HandleFunc("GET /api/theatre-static/", seriesHandler.TheatreStatic)
+	// Catch-all для абсолютных путей из JS плеера (/images/, /build/, /js/, /bnsi/)
+	// которые мы не можем переписать (хардкод в минифицированном JS)
+	mux.HandleFunc("GET /images/", seriesHandler.TheatreStatic)
+	mux.HandleFunc("GET /build/", seriesHandler.TheatreStatic)
+	mux.HandleFunc("GET /js/", seriesHandler.TheatreStatic)
+	mux.HandleFunc("GET /bnsi/", seriesHandler.TheatreStatic)
+	mux.HandleFunc("POST /bnsi/", seriesHandler.TheatreStatic)
 
 	mux.Handle("GET /api/progress", protected(http.HandlerFunc(progressHandler.GetList)))
 	mux.Handle("POST /api/progress", protected(http.HandlerFunc(progressHandler.Update)))
@@ -131,7 +143,9 @@ func main() {
 	mainHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 
-		if strings.HasPrefix(path, "/api/") || path == "/health" {
+		if strings.HasPrefix(path, "/api/") || path == "/health" ||
+			strings.HasPrefix(path, "/images/") || strings.HasPrefix(path, "/build/") ||
+			strings.HasPrefix(path, "/js/") || strings.HasPrefix(path, "/bnsi/") {
 			apiHandler.ServeHTTP(w, r)
 			return
 		}
