@@ -246,7 +246,7 @@ func getSessionCookies(sessionID string) []*http.Cookie {
 
 const theatreBase = "https://theatre.stloadi.live"
 const hlsOrigin = theatreBase
-const hlsUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+const hlsUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36"
 
 // TheatreProxy проксирует запросы к theatre.stloadi.live через сервер,
 // чтобы браузер мог обращаться к API плеера без CORS-блокировок.
@@ -340,92 +340,52 @@ func (h *Handler) HLSProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, rawURL, nil)
+	// CDN-токены привязаны к TLS-сессии Chrome (chromedp).
+	// Go-клиент с тем же IP получает 403. Используем FetchCDNURL — fetch() внутри
+	// живого Chrome-браузера с правильной TLS-сессией.
+	body, ct, err := h.resolver.FetchCDNURL(rawURL)
 	if err != nil {
-		w.WriteHeader(http.StatusBadGateway)
-		return
+		log.Printf("HLSProxy: FetchCDNURL failed (%v), falling back to Go client", err)
+		// Fallback: прямой Go-запрос (может 403ить, но лучше чем ничего)
+		req, reqErr := http.NewRequestWithContext(r.Context(), http.MethodGet, rawURL, nil)
+		if reqErr != nil {
+			w.WriteHeader(http.StatusBadGateway)
+			return
+		}
+		req.Header.Set("Origin", hlsOrigin)
+		req.Header.Set("Referer", hlsOrigin+"/")
+		req.Header.Set("User-Agent", hlsUserAgent)
+		req.Header.Set("Accept", "*/*")
+		req.Header.Set("Sec-Fetch-Dest", "empty")
+		req.Header.Set("Sec-Fetch-Mode", "cors")
+		req.Header.Set("Sec-Fetch-Site", "cross-site")
+		resp, doErr := cdnClient.Do(req)
+		if doErr != nil {
+			w.WriteHeader(http.StatusBadGateway)
+			return
+		}
+		defer resp.Body.Close()
+		body, _ = io.ReadAll(resp.Body)
+		ct = resp.Header.Get("Content-Type")
+		if resp.StatusCode != 200 {
+			log.Printf("HLSProxy: fallback CDN returned %d", resp.StatusCode)
+			w.WriteHeader(resp.StatusCode)
+			return
+		}
 	}
-	req.Header.Set("Origin", hlsOrigin)
-	req.Header.Set("Referer", hlsOrigin+"/")
-	req.Header.Set("User-Agent", hlsUserAgent)
 
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		w.WriteHeader(http.StatusBadGateway)
-		return
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		w.WriteHeader(http.StatusBadGateway)
-		return
-	}
-
-	if ct := resp.Header.Get("Content-Type"); ct != "" {
+	if ct != "" {
 		w.Header().Set("Content-Type", ct)
 	}
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.WriteHeader(resp.StatusCode)
 
-	// Для .m3u8 переписываем relative URLs на абсолютные, чтобы HLS.js
-	// мог снова пустить их через ProxyLoader
+	// Для .m3u8 переписываем relative URLs на абсолютные
 	if strings.Contains(rawURL, ".m3u8") {
 		body = rewriteM3U8Absolute(body, rawURL)
 	}
 
 	w.Write(body) //nolint:errcheck
 }
-
-// func (h *Handler) HLSProxy(w http.ResponseWriter, r *http.Request) {
-// 	rawURL := r.URL.Query().Get("url")
-// 	if rawURL == "" || !strings.HasPrefix(rawURL, "https://") {
-// 		w.WriteHeader(http.StatusBadRequest)
-// 		return
-// 	}
-
-// 	// CDN-токены привязаны к TLS-сессии Chrome (chromedp).
-// 	// Go-клиент с тем же IP получает 403. Используем FetchCDNURL — fetch() внутри
-// 	// живого Chrome-браузера с правильной TLS-сессией.
-// 	body, ct, err := h.resolver.FetchCDNURL(rawURL)
-// 	if err != nil {
-// 		log.Printf("HLSProxy: FetchCDNURL failed (%v), falling back to Go client", err)
-// 		// Fallback: прямой Go-запрос (может 403ить, но лучше чем ничего)
-// 		req, reqErr := http.NewRequestWithContext(r.Context(), http.MethodGet, rawURL, nil)
-// 		if reqErr != nil {
-// 			w.WriteHeader(http.StatusBadGateway)
-// 			return
-// 		}
-// 		req.Header.Set("Origin", hlsOrigin)
-// 		req.Header.Set("Referer", hlsOrigin+"/")
-// 		req.Header.Set("User-Agent", hlsUserAgent)
-// 		resp, doErr := cdnClient.Do(req)
-// 		if doErr != nil {
-// 			w.WriteHeader(http.StatusBadGateway)
-// 			return
-// 		}
-// 		defer resp.Body.Close()
-// 		body, _ = io.ReadAll(resp.Body)
-// 		ct = resp.Header.Get("Content-Type")
-// 		if resp.StatusCode != 200 {
-// 			log.Printf("HLSProxy: fallback CDN returned %d", resp.StatusCode)
-// 			w.WriteHeader(resp.StatusCode)
-// 			return
-// 		}
-// 	}
-
-// 	if ct != "" {
-// 		w.Header().Set("Content-Type", ct)
-// 	}
-// 	w.Header().Set("Access-Control-Allow-Origin", "*")
-
-// 	// Для .m3u8 переписываем relative URLs на абсолютные
-// 	if strings.Contains(rawURL, ".m3u8") {
-// 		body = rewriteM3U8Absolute(body, rawURL)
-// 	}
-
-// 	w.Write(body) //nolint:errcheck
-// }
 
 // rewriteM3U8Absolute заменяет relative URLs в M3U8 плейлисте на абсолютные CDN URLs.
 func rewriteM3U8Absolute(content []byte, baseURL string) []byte {
@@ -548,6 +508,64 @@ func (h *Handler) TheatreStatic(w http.ResponseWriter, r *http.Request) {
 	io.Copy(w, resp.Body) //nolint:errcheck
 }
 
+// BNSIProxy проксирует POST /bnsi/ запросы на theatre.stloadi.live через chromedp.
+func (h *Handler) BNSIProxy(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "*")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	ref := r.Header.Get("Referer")
+	if ref == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	parsed, err := url.Parse(ref)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	q := parsed.Query()
+	tokenMovie := q.Get("token_movie")
+	token := q.Get("token")
+	translation := q.Get("translation")
+	season := q.Get("season")
+	episode := q.Get("episode")
+
+	if tokenMovie == "" || token == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	theatreURL := theatreBase + "/?" + url.Values{
+		"token_movie": {tokenMovie},
+		"token":       {token},
+		"translation": {translation},
+		"season":      {season},
+		"episode":     {episode},
+	}.Encode()
+
+	log.Printf("BNSIProxy: theatre_url=%s", theatreURL)
+
+	result, err := h.resolver.ResolveStreamFullWithToken(r.Context(), theatreURL, token)
+	if err != nil {
+		log.Printf("BNSIProxy: ResolveStreamFullWithToken error: %v", err)
+		w.WriteHeader(http.StatusBadGateway)
+		return
+	}
+
+	log.Printf("BNSIProxy: bnsi_response len=%d", len(result.BNSIResponse))
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(result.BNSIResponse))
+}
+
 // Resolve следует редиректу с sspoisk.ru и парсит итоговую страницу
 // в поисках iframe, видео URL и конфигов плеера.
 // GET /api/series/{id}/resolve
@@ -648,6 +666,9 @@ func (h *Handler) Player(w http.ResponseWriter, r *http.Request) {
 	}
 	req.Header.Set("User-Agent", hlsUserAgent)
 	req.Header.Set("Referer", theatreBase+"/")
+	req.Header.Set("Sec-Fetch-Dest", "iframe")
+	req.Header.Set("Sec-Fetch-Mode", "navigate")
+	req.Header.Set("Sec-Fetch-Site", "cross-site")
 
 	resp, err := chromeClient.Do(req)
 	if err != nil {
@@ -666,7 +687,7 @@ func (h *Handler) Player(w http.ResponseWriter, r *http.Request) {
 	if resp.StatusCode != http.StatusOK {
 		log.Printf("Player: theatre returned %d", resp.StatusCode)
 		w.WriteHeader(resp.StatusCode)
-		w.Write(body)
+		w.Write(body) //nolint:errcheck
 		return
 	}
 
@@ -706,12 +727,12 @@ func patchPlayerHTML(html string, params url.Values) string {
 	// html = strings.ReplaceAll(html, "blob:__THEATRE_BLOB__", "blob:https://theatre.stloadi.live/")
 
 	// Инжектируем скрипты сразу после <base>
-	scripts := playerInterceptorScript() + playerPostMessageScript()
-	html = strings.Replace(html,
-		`<base href="/api/theatre-static/">`,
-		`<base href="/api/theatre-static/">`+scripts,
-		1,
-	)
+	// scripts := playerInterceptorScript() + playerPostMessageScript()
+	// html = strings.Replace(html,
+	// 	`<base href="/api/theatre-static/">`,
+	// 	`<base href="/api/theatre-static/">`+scripts,
+	// 	1,
+	// )
 
 	return html
 }
@@ -736,26 +757,38 @@ Object.defineProperty(window,'isFramed',{value:true,writable:false,configurable:
     if(loader) loader.classList.remove('active');
     // Уничтожаем предыдущий инстанс
     if(_hlsInstance){try{_hlsInstance.destroy();}catch(e){}}
-    // CDN токены привязаны к IP сервера (где запускался chromedp) — проксируем через сервер
+    // CDN токены привязаны к IP сервера — проксируем через сервер
     var proxyM3u8=H+encodeURIComponent(m3u8);
     if(typeof Hls!=='undefined'&&Hls.isSupported()){
       var hls=new Hls({
         maxBufferLength:30,
         maxMaxBufferLength:60,
         xhrSetup:function(xhr,url){
-          // Все CDN URLs перенаправляем через hls-proxy (токены привязаны к IP сервера)
+          // Все CDN URLs перенаправляем через hls-proxy
           if(url.indexOf('https://')===0&&url.indexOf('/api/')<0){
             xhr.open('GET',H+encodeURIComponent(url),true);
           }
+        },
+        fetchSetup:function(context){
+          // Также проксируем fetch запросы
+          var url=context.url;
+          if(url.indexOf('https://')===0&&url.indexOf('/api/')<0){
+            console.log('[initHLS] fetch redirect:', url.substring(0,80));
+            return new Request(H+encodeURIComponent(url),context);
+          }
+          return context;
         }
       });
       _hlsInstance=hls;
       hls.loadSource(proxyM3u8);
       hls.attachMedia(v);
-      hls.on(Hls.Events.MANIFEST_PARSED,function(){v.play().catch(function(){});});
+      hls.on(Hls.Events.MANIFEST_PARSED,function(){console.log('[initHLS] manifest parsed');v.play().catch(function(e){console.log('[initHLS] play error:',e);});});
+      hls.on(Hls.Events.ERROR,function(e,data){console.log('[initHLS] error:',data.type,data.details,data.reason);});
     } else if(v.canPlayType('application/vnd.apple.mpegurl')){
       v.src=proxyM3u8;
-      v.addEventListener('loadedmetadata',function(){v.play().catch(function(){});});
+      v.addEventListener('loadedmetadata',function(){v.play().catch(function(e){console.log('[initHLS] native play error:',e);});});
+    } else {
+      console.log('[initHLS] HLS not supported');
     }
   }
 
@@ -781,11 +814,11 @@ Object.defineProperty(window,'isFramed',{value:true,writable:false,configurable:
                 var best = q['1080'] || q['720'] || q['480'] || q['360'];
                 if(best){
                   var urls = best.split(' or ');
-                  if(urls.length > 0){
-                    console.log('[interceptor] using quality URL from bnsi');
-                    initHLS(urls[0]);
-                    return;
-                  }
+                  // Try second URL first (might be different CDN)
+                  var useUrl = urls.length > 1 ? urls[1] : urls[0];
+                  console.log('[interceptor] using quality URL from bnsi:', useUrl.substring(0,80));
+                  initHLS(useUrl);
+                  return;
                 }
               }
             } catch(e){console.error('[interceptor] bnsi parse error:', e);}
@@ -810,7 +843,7 @@ Object.defineProperty(window,'isFramed',{value:true,writable:false,configurable:
       // не показывает error UI (TypeError), пока initHLS не запустит видео
       return new Promise(function(){});
     }
-    // CDN HLS запросы — CORS разрешён (*), пропускаем напрямую без прокси
+    // CDN HLS запросы — пропускаем напрямую (CORS разрешён для *)
     return _f.call(this,input,init);
   };
 

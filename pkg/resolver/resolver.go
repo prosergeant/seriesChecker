@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -167,18 +168,16 @@ type StreamResult struct {
 
 // ResolveStreamFull загружает страницу theatre и возвращает данные от /bnsi/movies/{id}
 func (r *Resolver) ResolveStreamFull(ctx context.Context, theatreURL string) (*StreamResult, error) {
+	// Don't cancel previous streamCtx - it might still be used by HLSProxy
 	r.streamMu.Lock()
-	if r.streamCancel != nil {
-		r.streamCancel()
-	}
 	r.streamCtx = nil
 	r.streamCancel = nil
 	r.streamMu.Unlock()
 
-	browserCtx, cancel := chromedp.NewContext(r.allocCtx)
+	browserCtx, cancelBrowser := chromedp.NewContext(r.allocCtx)
 
 	timeoutCtx, cancelTimeout := context.WithTimeout(browserCtx, 30*time.Second)
-	defer cancelTimeout()
+	// Don't defer cancelTimeout - we want browserCtx to stay alive after function returns
 
 	var bnsiResponse string
 	var m3u8URLs []string
@@ -225,12 +224,12 @@ func (r *Resolver) ResolveStreamFull(ctx context.Context, theatreURL string) (*S
 			return nil
 		}),
 	); err != nil {
-		cancel()
+		cancelBrowser()
 		return nil, fmt.Errorf("navigate: %w", err)
 	}
 
 	if !pageLoaded {
-		cancel()
+		cancelBrowser()
 		return nil, fmt.Errorf("page failed to load")
 	}
 
@@ -240,12 +239,14 @@ func (r *Resolver) ResolveStreamFull(ctx context.Context, theatreURL string) (*S
 
 	select {
 	case <-found:
+		cancelTimeout()
 	case <-time.After(20 * time.Second):
+		cancelTimeout()
 	}
 
 	r.streamMu.Lock()
 	r.streamCtx = browserCtx
-	r.streamCancel = cancel
+	r.streamCancel = cancelBrowser
 	r.streamMu.Unlock()
 
 	m3u8URL := ""
@@ -300,6 +301,232 @@ func (r *Resolver) ResolveStreamFull(ctx context.Context, theatreURL string) (*S
 		HTML:         rawHTML,
 		FinalURL:     theatreURL,
 		BNSIResponse: bnsiResponse,
+	}, nil
+}
+
+// ResolveStreamFullWithToken работает как ResolveStreamFull, но принимает token параметр
+// для корректного запроса к /bnsi/movies/{id}.
+func (r *Resolver) ResolveStreamFullWithToken(ctx context.Context, theatreURL, token string) (*StreamResult, error) {
+	r.streamMu.Lock()
+	r.streamCtx = nil
+	r.streamCancel = nil
+	r.streamMu.Unlock()
+
+	browserCtx, cancel := chromedp.NewContext(r.allocCtx)
+	defer cancel()
+
+	timeoutCtx, cancelTimeout := context.WithTimeout(browserCtx, 30*time.Second)
+
+	var bnsiResponse string
+	var m3u8URLs []string
+	var found = make(chan struct{})
+	var reqID network.RequestID
+
+	chromedp.ListenTarget(browserCtx, func(ev interface{}) {
+		if e, ok := ev.(*network.EventResponseReceived); ok {
+			url := e.Response.URL
+			if strings.Contains(url, "/bnsi/movies") && e.Response.Status == 200 {
+				log.Printf("ResolveStreamFullWithToken: bnsi response status=%d url=%s", e.Response.Status, url[:min(80, len(url))])
+				reqID = e.RequestID
+			}
+			if strings.Contains(url, ".m3u8") {
+				log.Printf("ResolveStreamFullWithToken: CDN m3u8 response status=%d url=%s", e.Response.Status, url[:min(60, len(url))])
+				m3u8URLs = append(m3u8URLs, url)
+				if len(m3u8URLs) == 1 {
+					close(found)
+				}
+			}
+		}
+	})
+
+	var pageLoaded bool
+	if err := chromedp.Run(timeoutCtx,
+		network.Enable(),
+		network.SetExtraHTTPHeaders(network.Headers{
+			"Sec-Fetch-Dest": "iframe",
+			"Sec-Fetch-Mode": "navigate",
+			"Sec-Fetch-Site": "cross-site",
+			"Referer":        "https://theatre.stloadi.live",
+		}),
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			_, err := page.AddScriptToEvaluateOnNewDocument(
+				`Object.defineProperty(window,'isFramed',{value:true,writable:false,configurable:false});`,
+			).Do(ctx)
+			return err
+		}),
+		chromedp.Evaluate(`Object.defineProperty(navigator,'webdriver',{get:()=>undefined})`, nil),
+		chromedp.Navigate(theatreURL),
+		chromedp.Sleep(2*time.Second),
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			pageLoaded = true
+			return nil
+		}),
+	); err != nil {
+		cancel()
+		cancelTimeout()
+		return nil, fmt.Errorf("navigate: %w", err)
+	}
+
+	if !pageLoaded {
+		cancel()
+		cancelTimeout()
+		return nil, fmt.Errorf("page failed to load")
+	}
+
+	select {
+	case <-found:
+	case <-time.After(20 * time.Second):
+	}
+
+	m3u8URL := ""
+	if len(m3u8URLs) > 0 {
+		m3u8URL = m3u8URLs[0]
+	}
+
+	// Create a new context for body fetch (the timeoutCtx might be nearly expired)
+	bodyCtx, cancelBody := context.WithTimeout(browserCtx, 15*time.Second)
+
+	// Try to get bnsi response via JavaScript XHR with correct token
+	var bnsiFromBrowser string
+	_ = chromedp.Run(bodyCtx,
+		chromedp.Evaluate(fmt.Sprintf(`
+			(function(){
+				try{
+					var html=document.body.innerHTML;
+					var m=html.match(new RegExp("/movies/(\\d+)"));
+					var id=m?m[1]:'176192';
+					var f=new FormData();
+					f.append('token','%s');
+					var x=new XMLHttpRequest();
+					x.open('POST','/bnsi/movies/'+id,false);
+					x.send(f);
+					return x.responseText;
+				}catch(e){return 'err:'+e}
+			})()
+		`, token), &bnsiFromBrowser),
+	)
+	if bnsiFromBrowser != "" && !strings.HasPrefix(bnsiFromBrowser, "err:") && strings.Contains(bnsiFromBrowser, "hlsSource") {
+		bnsiResponse = bnsiFromBrowser
+		log.Printf("ResolveStreamFullWithToken: got bnsi from browser: %d bytes", len(bnsiResponse))
+	}
+
+	// Try to get bnsi response body using request ID
+	if bnsiResponse == "" && reqID != "" {
+		var body []byte
+		var bodyErr error
+		_ = chromedp.Run(bodyCtx, chromedp.ActionFunc(func(ctx context.Context) error {
+			body, bodyErr = network.GetResponseBody(reqID).Do(ctx)
+			return nil
+		}))
+		if bodyErr == nil && len(body) > 0 {
+			bnsiResponse = string(body)
+			log.Printf("ResolveStreamFullWithToken: got bnsi body from network: %d bytes", len(body))
+		} else if bodyErr != nil {
+			log.Printf("ResolveStreamFullWithToken: get body error: %v", bodyErr)
+		}
+	}
+
+	cancelBody()
+
+	if bnsiResponse == "" {
+		bnsiResponse = "{}"
+	}
+
+	r.streamMu.Lock()
+	r.streamCtx = browserCtx
+	r.streamCancel = cancel
+	r.streamMu.Unlock()
+
+	cancelTimeout()
+	cancel()
+	return &StreamResult{
+		M3U8URL:      m3u8URL,
+		M3U8All:      m3u8URLs,
+		HTML:         "",
+		FinalURL:     theatreURL,
+		BNSIResponse: bnsiResponse,
+	}, nil
+}
+
+type BNSIResult struct {
+	Body       string
+	StatusCode int
+}
+
+// BNSIRequest делает POST запрос к /bnsi/movies/{id} через chromedp браузер.
+// theatreURLWithParams - полный URL theatre.stloadi.live с token_movie, token, translation.
+func (r *Resolver) BNSIRequest(ctx context.Context, theatreURLWithParams, theatrePath, token string) (*BNSIResult, error) {
+	browserCtx, cancel := chromedp.NewContext(r.allocCtx)
+	defer cancel()
+
+	timeoutCtx, cancelTimeout := context.WithTimeout(browserCtx, 25*time.Second)
+	defer cancelTimeout()
+
+	var responseBody string
+	var statusCode int
+
+	log.Printf("BNSIRequest: navigating to %s", theatreURLWithParams)
+
+	if err := chromedp.Run(timeoutCtx,
+		network.Enable(),
+		network.SetExtraHTTPHeaders(network.Headers{
+			"Sec-Fetch-Dest": "empty",
+			"Sec-Fetch-Mode": "cors",
+			"Sec-Fetch-Site": "same-origin",
+			"Origin":         theatreBase,
+			"Referer":        theatreURLWithParams,
+		}),
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			_, err := page.AddScriptToEvaluateOnNewDocument(
+				`Object.defineProperty(window,'isFramed',{value:true,writable:false,configurable:false});`,
+			).Do(ctx)
+			return err
+		}),
+		chromedp.Evaluate(`Object.defineProperty(navigator,'webdriver',{get:()=>undefined})`, nil),
+		chromedp.Navigate(theatreURLWithParams),
+		chromedp.Sleep(3*time.Second),
+		chromedp.Evaluate(`
+			(function(){
+				try{
+					var html=document.body.innerHTML;
+					var m=html.match(new RegExp("/movies/(\\d+)"));
+					var id=m?m[1]:'176192';
+					var pageInfo='id='+id;
+					var f=new FormData();
+					f.append('token','45e20a5f584becf7a64dffb7174ddf');
+					var x=new XMLHttpRequest();
+					x.withCredentials=true;
+					x.open('POST','/bnsi/movies/'+id,false);
+					x.onreadystatechange=function(){
+						pageInfo+='|rs='+x.readyState+'|st='+x.status;
+					};
+					x.send(f);
+					var resp = x.responseText;
+					if(!resp) resp='empty';
+					return pageInfo+'|'+resp;
+				}catch(e){return 'err:'+e}
+			})()
+		`, &responseBody),
+	); err != nil {
+		return nil, fmt.Errorf("chromedp run: %w", err)
+	}
+
+	if strings.HasPrefix(responseBody, "err:") {
+		return nil, fmt.Errorf("js error: %s", responseBody)
+	}
+
+	parts := strings.SplitN(responseBody, "|", 2)
+	if len(parts) == 2 {
+		statusCode, _ = strconv.Atoi(parts[0])
+		responseBody = parts[1]
+	} else {
+		statusCode = 200
+	}
+
+	log.Printf("BNSIRequest: path=%s status=%d body_len=%d", theatrePath, statusCode, len(responseBody))
+	return &BNSIResult{
+		Body:       responseBody,
+		StatusCode: statusCode,
 	}, nil
 }
 
@@ -361,6 +588,40 @@ func (r *Resolver) FetchCDNURL(url string) ([]byte, string, error) {
 		return nil, "", fmt.Errorf("base64: %w", err)
 	}
 	return data, ct, nil
+}
+
+// FetchTheatrePageWithCookies загружает страницу театра через chromedp (реальный браузер),
+// ждёт выполнения JS (установки session cookies), возвращает HTML и cookies.
+// Cookies нужны для последующих /bnsi/ запросов — театр валидирует сессию.
+func (r *Resolver) FetchTheatrePageWithCookies(ctx context.Context, theatreURL string) (html string, cookies []*network.Cookie, err error) {
+	browserCtx, cancel := chromedp.NewContext(r.allocCtx)
+	defer cancel()
+
+	timeoutCtx, cancelTimeout := context.WithTimeout(browserCtx, 20*time.Second)
+	defer cancelTimeout()
+
+	var rawHTML string
+	if err = chromedp.Run(timeoutCtx,
+		network.Enable(),
+		chromedp.Navigate(theatreURL),
+		chromedp.Sleep(2*time.Second), // ждём JS для установки cookies
+		chromedp.OuterHTML("html", &rawHTML),
+	); err != nil {
+		return "", nil, fmt.Errorf("chromedp navigate: %w", err)
+	}
+
+	// Извлекаем все cookies установленные театром (через Set-Cookie и через JS)
+	if err2 := chromedp.Run(timeoutCtx, chromedp.ActionFunc(func(ctx context.Context) error {
+		var e error
+		cookies, e = network.GetCookies().Do(ctx)
+		return e
+	})); err2 != nil {
+		log.Printf("FetchTheatrePageWithCookies: get cookies error: %v", err2)
+		// не фатально — продолжаем без cookies
+	}
+
+	log.Printf("FetchTheatrePageWithCookies: got %d cookies for %s", len(cookies), theatreURL[:min(80, len(theatreURL))])
+	return rawHTML, cookies, nil
 }
 
 func (r *Resolver) Resolve(ctx context.Context, kinopoiskID int, isSerial bool) (*Result, error) {
