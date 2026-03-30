@@ -2,6 +2,8 @@ package resolver
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -12,8 +14,11 @@ import (
 
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/cdproto/page"
+	cdpruntime "github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/chromedp"
 )
+
+const theatreBase = "https://theatre.stloadi.live"
 
 // Result содержит всё что удалось извлечь из страницы с видео
 type Result struct {
@@ -26,6 +31,10 @@ type Result struct {
 type Resolver struct {
 	allocCtx    context.Context
 	allocCancel context.CancelFunc
+
+	streamMu     sync.Mutex
+	streamCtx    context.Context // живой chromedp-контекст с CDN-сессией (nil если нет)
+	streamCancel context.CancelFunc
 }
 
 func New() *Resolver {
@@ -47,6 +56,14 @@ func New() *Resolver {
 		opts = append(opts, chromedp.ExecPath(execPath))
 	}
 
+	// CDN_PROXY_URL — HTTP(S) прокси для CDN запросов (например webshare.io).
+	// Если задан, Chrome будет делать CDN-запросы через него.
+	// Используется для тестирования IP-бана: если через прокси CDN отдаёт 200 — IP сервера забанен.
+	// if proxyURL := os.Getenv("CDN_PROXY_URL"); proxyURL != "" {
+	// 	log.Printf("resolver: using CDN proxy: %s", proxyURL)
+	// 	opts = append(opts, chromedp.Flag("proxy-server", proxyURL))
+	// }
+
 	allocCtx, cancel := chromedp.NewExecAllocator(context.Background(), opts...)
 	return &Resolver{
 		allocCtx:    allocCtx,
@@ -62,20 +79,41 @@ func (r *Resolver) Close() {
 // ResolveStream загружает страницу theatre через chromedp и возвращает m3u8 URL.
 // Используется для получения потока — chromedp нужен потому что /bnsi/ API
 // привязан к серверной сессии, которая создаётся при загрузке страницы в браузере.
+//
+// Стратегия: инжектируем в chromedp-браузер скрипт, который перехватывает fetch(/bnsi/)
+// и сохраняет m3u8 URL из JSON-ответа ДО того как chromedp обращается к CDN.
+// Это важно: CDN-токен привязан к IP/сессии первого запроса — если chromedp его «сжигает»,
+// наш Go-прокси получит 403. Если URL извлечён из /bnsi/ до CDN-запроса,
+// токен остаётся свежим.
+// ResolveStream загружает страницу theatre через chromedp и возвращает m3u8 URL.
+// После нахождения URL browserCtx сохраняется в r.streamCtx — он остаётся жив,
+// чтобы FetchCDNURL мог делать fetch() в контексте Chrome-сессии, у которой
+// есть валидный CDN-токен (токены привязаны к TLS-сессии Chrome, Go-клиент 403ит).
 func (r *Resolver) ResolveStream(ctx context.Context, theatreURL string) (string, error) {
+	// Отменяем предыдущую сессию, если есть
+	r.streamMu.Lock()
+	if r.streamCancel != nil {
+		r.streamCancel()
+	}
+	r.streamCtx = nil
+	r.streamCancel = nil
+	r.streamMu.Unlock()
+
 	browserCtx, cancel := chromedp.NewContext(r.allocCtx)
-	defer cancel()
 
 	timeoutCtx, cancelTimeout := context.WithTimeout(browserCtx, 30*time.Second)
 	defer cancelTimeout()
 
 	var m3u8URL string
+	// var responseAll any
 	var once sync.Once
 	found := make(chan struct{})
 
 	chromedp.ListenTarget(browserCtx, func(ev interface{}) {
 		if e, ok := ev.(*network.EventResponseReceived); ok {
 			if strings.Contains(e.Response.URL, ".m3u8") {
+				// Логируем статус CDN-ответа: если 403 — IP забанен/rate-limit
+				log.Printf("ResolveStream: CDN m3u8 response status=%d url=%s", e.Response.Status, e.Response.URL[:min(60, len(e.Response.URL))])
 				once.Do(func() {
 					m3u8URL = e.Response.URL
 					close(found)
@@ -101,16 +139,228 @@ func (r *Resolver) ResolveStream(ctx context.Context, theatreURL string) (string
 		chromedp.Evaluate(`Object.defineProperty(navigator,'webdriver',{get:()=>undefined})`, nil),
 		chromedp.Navigate(theatreURL),
 	); err != nil {
+		cancel()
 		return "", fmt.Errorf("navigate: %w", err)
 	}
 
 	select {
 	case <-found:
-		log.Printf("ResolveStream: found m3u8=%s", m3u8URL)
+		// Сохраняем browserCtx живым для FetchCDNURL
+		r.streamMu.Lock()
+		r.streamCtx = browserCtx
+		r.streamCancel = cancel
+		r.streamMu.Unlock()
 		return m3u8URL, nil
 	case <-time.After(25 * time.Second):
+		cancel()
 		return "", fmt.Errorf("m3u8 not found in 25s")
 	}
+}
+
+type StreamResult struct {
+	M3U8URL      string   `json:"m3u8_url"`
+	M3U8All      []string `json:"m3u8_all"`
+	HTML         string   `json:"html"`
+	FinalURL     string   `json:"final_url"`
+	BNSIResponse string   `json:"bnsi_response,omitempty"`
+}
+
+// ResolveStreamFull загружает страницу theatre и возвращает данные от /bnsi/movies/{id}
+func (r *Resolver) ResolveStreamFull(ctx context.Context, theatreURL string) (*StreamResult, error) {
+	r.streamMu.Lock()
+	if r.streamCancel != nil {
+		r.streamCancel()
+	}
+	r.streamCtx = nil
+	r.streamCancel = nil
+	r.streamMu.Unlock()
+
+	browserCtx, cancel := chromedp.NewContext(r.allocCtx)
+
+	timeoutCtx, cancelTimeout := context.WithTimeout(browserCtx, 30*time.Second)
+	defer cancelTimeout()
+
+	var bnsiResponse string
+	var m3u8URLs []string
+	var found = make(chan struct{})
+	var reqID network.RequestID
+
+	chromedp.ListenTarget(browserCtx, func(ev interface{}) {
+		if e, ok := ev.(*network.EventResponseReceived); ok {
+			url := e.Response.URL
+			if strings.Contains(url, "/bnsi/movies") && e.Response.Status == 200 {
+				log.Printf("ResolveStreamFull: bnsi response status=%d url=%s", e.Response.Status, url[:min(80, len(url))])
+				reqID = e.RequestID
+			}
+			if strings.Contains(url, ".m3u8") {
+				log.Printf("ResolveStreamFull: CDN m3u8 response status=%d url=%s", e.Response.Status, url[:min(60, len(url))])
+				m3u8URLs = append(m3u8URLs, url)
+				if len(m3u8URLs) == 1 {
+					close(found)
+				}
+			}
+		}
+	})
+
+	var pageLoaded bool
+	if err := chromedp.Run(timeoutCtx,
+		network.Enable(),
+		network.SetExtraHTTPHeaders(network.Headers{
+			"Sec-Fetch-Dest": "iframe",
+			"Sec-Fetch-Mode": "navigate",
+			"Sec-Fetch-Site": "cross-site",
+			"Referer":        "https://theatre.stloadi.live",
+		}),
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			_, err := page.AddScriptToEvaluateOnNewDocument(
+				`Object.defineProperty(window,'isFramed',{value:true,writable:false,configurable:false});`,
+			).Do(ctx)
+			return err
+		}),
+		chromedp.Evaluate(`Object.defineProperty(navigator,'webdriver',{get:()=>undefined})`, nil),
+		chromedp.Navigate(theatreURL),
+		chromedp.Sleep(2*time.Second),
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			pageLoaded = true
+			return nil
+		}),
+	); err != nil {
+		cancel()
+		return nil, fmt.Errorf("navigate: %w", err)
+	}
+
+	if !pageLoaded {
+		cancel()
+		return nil, fmt.Errorf("page failed to load")
+	}
+
+	_ = chromedp.Run(timeoutCtx,
+		chromedp.Sleep(500*time.Millisecond),
+	)
+
+	select {
+	case <-found:
+	case <-time.After(20 * time.Second):
+	}
+
+	r.streamMu.Lock()
+	r.streamCtx = browserCtx
+	r.streamCancel = cancel
+	r.streamMu.Unlock()
+
+	m3u8URL := ""
+	if len(m3u8URLs) > 0 {
+		m3u8URL = m3u8URLs[0]
+	}
+
+	var rawHTML string
+	_ = chromedp.Run(timeoutCtx,
+		chromedp.OuterHTML("html", &rawHTML),
+	)
+
+	// Try to get the bnsi data directly from theatre - extract movie ID from various sources
+	var pageData string
+	_ = chromedp.Run(timeoutCtx,
+		chromedp.Evaluate(`(function(){try{var html=document.body.innerHTML;var m=html.match(/\"movie[iI]d\"[\\s:]*(\\d+)/);if(m)return'm='+m[1];m=html.match(/kinopoisk[_-]?id[\\s:]*(\\d+)/i);if(m)return'm='+m[1];m=html.match(/\\/movies\\/(\\d+)/);if(m)return'm='+m[1];return'nofound'}catch(e){return'err:'+e}})()`, &pageData),
+	)
+	log.Printf("ResolveStreamFull: page data: %s", pageData)
+
+	// Try to get bnsi response from within browser context
+	var bnsiFromBrowser string
+	_ = chromedp.Run(timeoutCtx,
+		chromedp.Evaluate(`(function(){try{var html=document.body.innerHTML;var m=html.match(/\\/movies\\/(\\d+)/);var id=m?m[1]:'176192';var f=new FormData();f.append('token','45e20a5f584becf7a64dffb7174ddf');var x=new XMLHttpRequest();x.open('POST','/bnsi/movies/'+id,false);x.send(f);return x.responseText.substring(0,500)}catch(e){return'err:'+e}})()`, &bnsiFromBrowser),
+	)
+	if bnsiFromBrowser != "" && !strings.HasPrefix(bnsiFromBrowser, "err:") {
+		bnsiResponse = bnsiFromBrowser
+	}
+
+	// Try to get bnsi response body using request ID
+	if bnsiResponse == "" && reqID != "" {
+		var body []byte
+		var bodyErr error
+		_ = chromedp.Run(timeoutCtx, chromedp.ActionFunc(func(ctx context.Context) error {
+			body, bodyErr = network.GetResponseBody(reqID).Do(ctx)
+			return nil
+		}))
+		if bodyErr == nil && len(body) > 0 {
+			bnsiResponse = string(body)
+			log.Printf("ResolveStreamFull: got bnsi body: %d bytes", len(body))
+		} else if bodyErr != nil {
+			log.Printf("ResolveStreamFull: get body error: %v", bodyErr)
+		}
+	}
+
+	if bnsiResponse == "" {
+		bnsiResponse = "{}"
+	}
+
+	return &StreamResult{
+		M3U8URL:      m3u8URL,
+		M3U8All:      m3u8URLs,
+		HTML:         rawHTML,
+		FinalURL:     theatreURL,
+		BNSIResponse: bnsiResponse,
+	}, nil
+}
+
+// FetchCDNURL загружает CDN-ресурс через fetch() внутри живого Chrome-браузера,
+// у которого есть валидный TLS-токен для CDN. Возвращает тело и Content-Type.
+// Используется HLSProxy когда Go-клиент получает 403 от CDN.
+func (r *Resolver) FetchCDNURL(url string) ([]byte, string, error) {
+	r.streamMu.Lock()
+	sessCtx := r.streamCtx
+	r.streamMu.Unlock()
+
+	if sessCtx == nil {
+		return nil, "", fmt.Errorf("no active stream session")
+	}
+
+	// JS fetch внутри Chrome: возвращает "content-type\nbase64data"
+	script := fmt.Sprintf(`(async function(){
+  const r = await fetch(%q);
+  const ct = r.headers.get('content-type')||'';
+  const buf = await r.arrayBuffer();
+  const arr = new Uint8Array(buf);
+  let b64='';
+  const C=8192;
+  for(let i=0;i<arr.length;i+=C)
+    b64+=btoa(String.fromCharCode.apply(null,arr.subarray(i,Math.min(i+C,arr.length))));
+  return ct+'\n'+b64;
+})()`, url)
+
+	fetchCtx, cancel := context.WithTimeout(sessCtx, 30*time.Second)
+	defer cancel()
+
+	var result *cdpruntime.RemoteObject
+	var exception *cdpruntime.ExceptionDetails
+	if err := chromedp.Run(fetchCtx, chromedp.ActionFunc(func(ctx context.Context) error {
+		var err error
+		result, exception, err = cdpruntime.Evaluate(script).
+			WithAwaitPromise(true).
+			WithReturnByValue(true).
+			Do(ctx)
+		if exception != nil {
+			return fmt.Errorf("js: %s", exception.Text)
+		}
+		return err
+	})); err != nil {
+		return nil, "", fmt.Errorf("evaluate: %w", err)
+	}
+
+	var combined string
+	if err := json.Unmarshal(result.Value, &combined); err != nil {
+		return nil, "", fmt.Errorf("unmarshal: %w", err)
+	}
+	idx := strings.IndexByte(combined, '\n')
+	if idx < 0 {
+		return nil, "", fmt.Errorf("unexpected result format")
+	}
+	ct := combined[:idx]
+	data, err := base64.StdEncoding.DecodeString(combined[idx+1:])
+	if err != nil {
+		return nil, "", fmt.Errorf("base64: %w", err)
+	}
+	return data, ct, nil
 }
 
 func (r *Resolver) Resolve(ctx context.Context, kinopoiskID int, isSerial bool) (*Result, error) {

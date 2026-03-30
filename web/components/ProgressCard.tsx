@@ -60,7 +60,7 @@ export function ProgressCard({
     setIsEditing(false);
   };
 
-  const watchUrl = `${API_URL}/api/series/${item.kinopoisk_id}/resolve`; //`https://fbfree.lol/${item.is_serial ? "series" : "film"}/${item.kinopoisk_id}`;
+  const watchUrl = `${API_URL}/api/series/${item.kinopoisk_id}/resolveV2`; //`https://fbfree.lol/${item.is_serial ? "series" : "film"}/${item.kinopoisk_id}`;
 
   return (
     <>
