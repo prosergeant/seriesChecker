@@ -32,7 +32,25 @@
       "Bash(npx agent-browser:*)",
       "Bash(agent-browser open:*)",
       "Bash(agent-browser wait:*)",
-      "Bash(agent-browser screenshot:*)"
+      "Bash(agent-browser screenshot:*)",
+      "Bash(curl -s \"http://localhost:8080/api/series/861614/resolveV2?token_movie=4f942c2ef97f5097b4690e45316e0a&translation=34&season=1&episode=1&token=45e20a5f584becf7a64dffb7174ddf\")",
+      "Bash(curl -s -D - \"http://localhost:8080/api/series/861614/player?token_movie=4f942c2ef97f5097b4690e45316e0a&translation=34&season=1&episode=1&token=45e20a5f584becf7a64dffb7174ddf\")",
+      "Bash(curl -s -w \"\\\\nHTTP_STATUS: %{http_code}\" -X POST \"http://localhost:8080/bnsi/movies/176192\" -H \"Content-Type: application/x-www-form-urlencoded\" -H \"Referer: http://localhost:8080/api/series/861614/player?token_movie=4f942c2ef97f5097b4690e45316e0a&translation=34&season=1&episode=1&token=45e20a5f584becf7a64dffb7174ddf\" -d \"token=45e20a5f584becf7a64dffb7174ddf\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" --max-time 30 \"http://localhost:8080/api/series/861614/player?token_movie=4f942c2ef97f5097b4690e45316e0a&translation=34&season=1&episode=1&token=45e20a5f584becf7a64dffb7174ddf\")",
+      "Bash(curl -s \"http://localhost:8080/api/series/861614/player?token_movie=4f942c2ef97f5097b4690e45316e0a&translation=34&season=1&episode=1&token=45e20a5f584becf7a64dffb7174ddf\")",
+      "Read(//tmp/**)",
+      "Bash(curl -s -A \"Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/135.0.0.0 Safari/537.36\" -H 'Referer: https://theatre.stloadi.live/' \"https://theatre.stloadi.live/?token_movie=4f942c2ef97f5097b4690e45316e0a&translation=34&season=1&episode=1&token=45e20a5f584becf7a64dffb7174ddf\")",
+      "Bash(curl -s -A \"Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/135.0.0.0 Safari/537.36\" -H 'Referer: https://theatre.stloadi.live/' \"https://theatre.stloadi.live/?token_movie=4f942c2ef97f5097b4690e45316e0a&translation=34&season=1&episode=1&token=45e20a5f584becf7a64dffb7174ddf\" 2)",
+      "Bash(/dev/null grep:*)",
+      "Bash(grep -o \".\\\\{0,40\\\\}176192.\\\\{0,40\\\\}\" /tmp/theatre_raw.html)",
+      "Bash(curl -s https://theatre.stloadi.live/build/app.cbde816a.js)",
+      "Bash(grep -o \".\\\\{0,30\\\\}viewporti.\\\\{0,60\\\\}\")",
+      "Bash(curl -s http://localhost:8080/build/app.cbde816a.js)",
+      "Bash(grep -o \".\\\\{0,80\\\\}bnsi.\\\\{0,100\\\\}\")",
+      "Bash(grep -o \".\\\\{0,200\\\\}\\\\/bnsi\\\\/movies.\\\\{0,200\\\\}\")",
+      "mcp__plugin_playwright_playwright__browser_run_code",
+      "Bash(grep -oE '=> \\\\[[0-9]+\\\\][^$]*')",
+      "Bash(python3:*)"
     ]
   }
 }

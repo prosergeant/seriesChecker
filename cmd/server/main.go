@@ -102,6 +102,7 @@ func main() {
 	mux.HandleFunc("GET /api/series/{id}/relations", seriesHandler.GetRelations)
 	mux.HandleFunc("GET /api/series/{id}/resolveV2", seriesHandler.ResolveV2)
 	mux.HandleFunc("GET /api/series/{id}/player", seriesHandler.Player)
+	mux.HandleFunc("GET /api/series/{id}/players", seriesHandler.Players)
 	mux.HandleFunc("GET /api/hls-proxyV2", seriesHandler.HLSProxyV2)
 	mux.HandleFunc("GET /api/theatre-static/", seriesHandler.TheatreStatic)
 	// Catch-all для абсолютных путей из JS плеера (/images/, /build/, /js/, /bnsi/)

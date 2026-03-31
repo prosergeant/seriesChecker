@@ -1,27 +1,36 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+export const API_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
     super(message);
-    this.name = 'ApiError';
+    this.name = "ApiError";
   }
 }
 
-async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+async function request<T>(
+  endpoint: string,
+  options: RequestInit = {},
+): Promise<T> {
   const url = `${API_URL}${endpoint}`;
-  
+
   const response = await fetch(url, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       ...options.headers,
     },
-    credentials: 'include',
+    credentials: "include",
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new ApiError(response.status, error.error || 'Request failed');
+    const error = await response
+      .json()
+      .catch(() => ({ error: "Unknown error" }));
+    throw new ApiError(response.status, error.error || "Request failed");
   }
 
   return response.json();
@@ -30,33 +39,33 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 export const api = {
   auth: {
     register: (email: string, password: string) =>
-      request<{ id: string; email: string }>('/api/auth/register', {
-        method: 'POST',
+      request<{ id: string; email: string }>("/api/auth/register", {
+        method: "POST",
         body: JSON.stringify({ email, password }),
       }),
-    
+
     login: (email: string, password: string) =>
-      request<{ message: string; session_id: string }>('/api/auth/login', {
-        method: 'POST',
+      request<{ message: string; session_id: string }>("/api/auth/login", {
+        method: "POST",
         body: JSON.stringify({ email, password }),
       }),
-    
-    logout: () =>
-      request('/api/auth/logout', { method: 'POST' }),
-    
-    me: () => request<{ id: string; email: string }>('/api/auth/me'),
+
+    logout: () => request("/api/auth/logout", { method: "POST" }),
+
+    me: () => request<{ id: string; email: string }>("/api/auth/me"),
   },
 
   series: {
     search: (query: string) =>
-      request<SeriesSearchResult[]>(`/api/series/search?q=${encodeURIComponent(query)}`),
-    
-    getById: (id: number) =>
-      request<SeriesDetails>(`/api/series/${id}`),
-    
+      request<SeriesSearchResult[]>(
+        `/api/series/search?q=${encodeURIComponent(query)}`,
+      ),
+
+    getById: (id: number) => request<SeriesDetails>(`/api/series/${id}`),
+
     getSimilar: (id: number) =>
       request<SimilarMovie[]>(`/api/series/${id}/similar`),
-    
+
     getRelations: (id: number) =>
       request<RelationMovie[]>(`/api/series/${id}/relations`),
   },
@@ -64,19 +73,24 @@ export const api = {
   progress: {
     getAll: (status?: string) =>
       request<ProgressItem[]>(
-        `/api/progress${status ? `?status=${status}` : ''}`
+        `/api/progress${status ? `?status=${status}` : ""}`,
       ),
-    
+
     update: (data: UpdateProgressRequest) =>
-      request<ProgressItem>('/api/progress', {
-        method: 'POST',
+      request<ProgressItem>("/api/progress", {
+        method: "POST",
         body: JSON.stringify(data),
       }),
-    
+
     delete: (seriesId: number) =>
       request<{ message: string }>(`/api/progress/${seriesId}`, {
-        method: 'DELETE',
+        method: "DELETE",
       }),
+  },
+
+  players: {
+    getPlayers: (kinopoiskId: number) =>
+      request<PlayerResponse>(`/api/series/${kinopoiskId}/players`),
   },
 };
 
@@ -105,7 +119,7 @@ export interface ProgressItem {
   current_season: number;
   current_episode: number;
   status: string;
-  is_serial: boolean
+  is_serial: boolean;
 }
 
 export interface UpdateProgressRequest {
@@ -130,4 +144,21 @@ export interface RelationMovie {
   nameOriginal: string;
   posterUrl: string;
   relationType: string;
+}
+
+export interface PlayerResponse {
+  data: Player[];
+}
+
+export interface Player {
+  type: string;
+  iframeUrl: string;
+  translations: Translation[];
+}
+
+export interface Translation {
+  id?: number;
+  name?: string;
+  quality?: string;
+  iframeUrl: string;
 }

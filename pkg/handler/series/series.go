@@ -560,8 +560,8 @@ func (h *Handler) BNSIProxy(w http.ResponseWriter, r *http.Request) {
 	tokenMovie := q.Get("token_movie")
 	token := q.Get("token")
 	translation := q.Get("translation")
-	season := q.Get("season")
-	episode := q.Get("episode")
+	// season := q.Get("season")
+	// episode := q.Get("episode")
 
 	if tokenMovie == "" || token == "" {
 		w.WriteHeader(http.StatusBadRequest)
@@ -572,8 +572,8 @@ func (h *Handler) BNSIProxy(w http.ResponseWriter, r *http.Request) {
 		"token_movie": {tokenMovie},
 		"token":       {token},
 		"translation": {translation},
-		"season":      {season},
-		"episode":     {episode},
+		// "season":      {season},
+		// "episode":     {episode},
 	}.Encode()
 
 	log.Printf("BNSIProxy: theatre_url=%s", theatreURL)
@@ -613,7 +613,7 @@ func (h *Handler) ResolveV2(w http.ResponseWriter, r *http.Request) {
 		playerURL += "?" + qs
 	}
 
-	// straightLink := "https://theatre.stloadi.live/?token_movie=4f942c2ef97f5097b4690e45316e0a&translation=34&season=1&episode=1&token=45e20a5f584becf7a64dffb7174ddf"
+	// straightLink := "https://theatre.stloadi.live/?token_movie=ba08e3625992eff7a0474e6983ea84&token=45e20a5f584becf7a64dffb7174ddf"
 
 	html := fmt.Sprintf(`<!DOCTYPE html>
 <html><head>
@@ -644,10 +644,6 @@ window.addEventListener('message', function(e) {
 func (h *Handler) Player(w http.ResponseWriter, r *http.Request) {
 	// Формируем URL theatre с query параметрами
 	theatreURL := theatreBase + "/?" + r.URL.RawQuery
-	if r.URL.RawQuery == "" {
-		// fallback — захардкоженный токен для тестов
-		theatreURL = theatreBase + "/?token_movie=4f942c2ef97f5097b4690e45316e0a&translation=34&token=45e20a5f584becf7a64dffb7174ddf"
-	}
 
 	log.Printf("Player: fetching %s", theatreURL)
 
@@ -658,9 +654,9 @@ func (h *Handler) Player(w http.ResponseWriter, r *http.Request) {
 	}
 	req.Header.Set("User-Agent", hlsUserAgent)
 	req.Header.Set("Referer", theatreBase+"/")
-	req.Header.Set("Sec-Fetch-Dest", "iframe")
-	req.Header.Set("Sec-Fetch-Mode", "navigate")
-	req.Header.Set("Sec-Fetch-Site", "cross-site")
+	// req.Header.Set("Sec-Fetch-Dest", "iframe")
+	// req.Header.Set("Sec-Fetch-Mode", "navigate")
+	// req.Header.Set("Sec-Fetch-Site", "cross-site")
 
 	resp, err := chromeClient.Do(req)
 	if err != nil {
@@ -755,11 +751,6 @@ Object.defineProperty(window,'isFramed',{value:true,writable:false,configurable:
   XMLHttpRequest.prototype.send=function(body){
     const url = this._interceptedURL || '';
 
-	const data = {type: 'theatre-progress'};
-	data.url = url
-	data.body = body
-    window.parent.postMessage(data,'*');
-
 	if(typeof url !== 'string') return _s.apply(this,arguments);
 
 	if(!url.includes('?url=') && url.includes('.m3u8')) { 
@@ -836,4 +827,42 @@ func playerPostMessageScript() string {
   },2000);
 })();
 </script>`
+}
+
+// Players проксирует запрос к fbphdplay.top/api/players?kinopoisk={id} и возвращает JSON как есть.
+// GET /api/players/{id}
+func (h *Handler) Players(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(ErrorResponse{Error: "id is required"})
+		return
+	}
+
+	targetURL := "https://fbphdplay.top/api/players?kinopoisk=" + url.QueryEscape(id)
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, targetURL, nil)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(ErrorResponse{Error: "failed to create request"})
+		return
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		w.WriteHeader(http.StatusBadGateway)
+		json.NewEncoder(w).Encode(ErrorResponse{Error: "upstream request failed"})
+		return
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadGateway)
+		json.NewEncoder(w).Encode(ErrorResponse{Error: "failed to read response"})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(resp.StatusCode)
+	w.Write(body)
 }

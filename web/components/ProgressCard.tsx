@@ -16,9 +16,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ProgressItem, UpdateProgressRequest } from "@/lib/api";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+import {
+  api,
+  API_URL,
+  type ProgressItem,
+  type UpdateProgressRequest,
+} from "@/lib/api";
 
 export const STATUS_LABELS: Record<
   string,
@@ -44,6 +47,9 @@ export function ProgressCard({
   const [season, setSeason] = useState(item.current_season);
   const [episode, setEpisode] = useState(item.current_episode);
   const [isWatchModalOpen, setIsWatchModalOpen] = useState(false);
+  const [watchUrl, setWatchUrl] = useState(
+    `${API_URL}/api/series/${item.kinopoisk_id}/resolveV2`,
+  );
 
   const statusInfo = STATUS_LABELS[item.status] || {
     label: item.status,
@@ -60,7 +66,24 @@ export function ProgressCard({
     setIsEditing(false);
   };
 
-  const watchUrl = `${API_URL}/api/series/${item.kinopoisk_id}/resolveV2`; //`https://fbfree.lol/${item.is_serial ? "series" : "film"}/${item.kinopoisk_id}`;
+  const openPlayerModal = async () => {
+    const players = await api.players.getPlayers(item.kinopoisk_id);
+    const alloha = players?.data?.find((el) => el.type === "Alloha");
+    if (alloha) {
+      const url = new URL(alloha.iframeUrl);
+      if (url.search) {
+        setWatchUrl(watchUrl + url.search);
+        setIsWatchModalOpen(true);
+      }
+    }
+  };
+
+  const goToPreview = () => {
+    window.open(
+      `https://www.sspoisk.ru/${item.is_serial ? "series" : "film"}/${item.kinopoisk_id}`,
+      "_blank",
+    );
+  };
 
   return (
     <>
@@ -162,7 +185,7 @@ export function ProgressCard({
                   </button>
                 )}
                 <button
-                  onClick={() => setIsWatchModalOpen(true)}
+                  onClick={openPlayerModal}
                   className="inline-flex items-center gap-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-sm font-medium px-3 py-1.5 rounded-full transition-colors border border-primary/20"
                 >
                   <svg
@@ -174,6 +197,23 @@ export function ProgressCard({
                   </svg>
                   Смотреть
                 </button>
+
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    goToPreview();
+                  }}
+                  className="inline-flex items-center gap-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-sm font-medium px-3 py-1.5 rounded-full transition-colors border border-primary/20"
+                >
+                  <svg
+                    className="w-3 h-3"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </a>
               </>
             )}
             <RelatedMoviesModal
