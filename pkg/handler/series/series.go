@@ -370,6 +370,7 @@ func (h *Handler) HLSProxy(w http.ResponseWriter, r *http.Request) {
 		ct = resp.Header.Get("Content-Type")
 		if resp.StatusCode != 200 {
 			log.Printf("HLSProxy: fallback CDN returned %d", resp.StatusCode)
+			w.Header().Set("Content-Length", fmt.Sprintf("%d", len(body)))
 			w.WriteHeader(resp.StatusCode)
 			return
 		}
@@ -398,7 +399,7 @@ func (h *Handler) HLSProxyV2(w http.ResponseWriter, r *http.Request) {
 	// targetURL := "https://kmf.kz"
 
 	// 2. Создаем новый запрос к целевому серверу
-	proxyReq, err := http.NewRequest(r.Method, targetURL, r.Body)
+	proxyReq, err := http.NewRequest(r.Method, targetURL, nil)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -425,6 +426,13 @@ func (h *Handler) HLSProxyV2(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
+	// Читаем тело ответа
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+
 	// 6. Добавляем CORS-заголовки, чтобы ваш браузер (localhost) принял ответ
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
@@ -436,15 +444,27 @@ func (h *Handler) HLSProxyV2(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 7. Копируем ответ от сервера обратно в браузер
+	// Копируем заголовки ответа (кроме Transfer-Encoding и Content-Length, которые могут быть неактуальны)
 	for name, values := range resp.Header {
+		lower := strings.ToLower(name)
+		if lower == "transfer-encoding" || lower == "content-length" {
+			continue
+		}
 		for _, value := range values {
 			w.Header().Add(name, value)
 		}
 	}
 
+	// Для .m3u8 переписываем все URLs через наш прокси V2
+	if strings.Contains(targetURL, ".m3u8") {
+		body = rewriteM3U8ThroughProxyV2(body, targetURL)
+		// Перезаписываем Content-Length после rewrite (размер изменился)
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(body)))
+	}
+	// Для не-.m3u8 (.ts сегменты) — не меняем Content-Length, пусть остаётся от CDN
+
 	w.WriteHeader(resp.StatusCode)
-	io.Copy(w, resp.Body)
+	w.Write(body) //nolint:errcheck
 }
 
 // rewriteM3U8Absolute заменяет relative URLs в M3U8 плейлисте на абсолютные CDN URLs.
@@ -553,6 +573,50 @@ func rewriteURIAttrsThroughProxy(content string) string {
 		i += end
 	}
 	return sb.String()
+}
+
+// rewriteURIAttrsThroughProxyV2 оборачивает URI="https://..." через /api/hls-proxyV2.
+func rewriteURIAttrsThroughProxyV2(content string) string {
+	var sb strings.Builder
+	i := 0
+	for i < len(content) {
+		idx := strings.Index(content[i:], `URI="https://`)
+		if idx < 0 {
+			sb.WriteString(content[i:])
+			break
+		}
+		sb.WriteString(content[i : i+idx+5]) // до URI="
+		i += idx + 5
+		end := strings.Index(content[i:], `"`)
+		if end < 0 {
+			sb.WriteString(content[i:])
+			break
+		}
+		uri := content[i : i+end]
+		sb.WriteString("/api/hls-proxyV2?url=" + url.QueryEscape(uri))
+		i += end
+	}
+	return sb.String()
+}
+
+// rewriteM3U8ThroughProxyV2 делает все URL в m3u8 абсолютными, затем оборачивает их
+// в /api/hls-proxyV2?url=...
+func rewriteM3U8ThroughProxyV2(content []byte, baseURL string) []byte {
+	absolute := rewriteM3U8Absolute(content, baseURL)
+
+	lines := strings.Split(string(absolute), "\n")
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		if strings.HasPrefix(trimmed, "https://") {
+			lines[i] = "/api/hls-proxyV2?url=" + url.QueryEscape(trimmed)
+		}
+	}
+	result := strings.Join(lines, "\n")
+	result = rewriteURIAttrsThroughProxyV2(result)
+	return []byte(result)
 }
 
 // TheatreStatic проксирует статические ресурсы (img, css, js, fonts) с theatre.stloadi.live.
