@@ -345,10 +345,11 @@ func (r *Resolver) ResolveStreamFullWithToken(ctx context.Context, theatreURL, t
 	if err := chromedp.Run(timeoutCtx,
 		network.Enable(),
 		network.SetExtraHTTPHeaders(network.Headers{
-			"Sec-Fetch-Dest": "iframe",
-			"Sec-Fetch-Mode": "navigate",
-			"Sec-Fetch-Site": "cross-site",
-			"Referer":        "https://theatre.stloadi.live",
+			// "Sec-Fetch-Dest": "iframe",
+			// "Sec-Fetch-Mode": "navigate",
+			// "Sec-Fetch-Site": "cross-site",
+			"Referer": "https://theatre.stloadi.live",
+			"Origin":  "https://theatre.stloadi.live",
 		}),
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			_, err := page.AddScriptToEvaluateOnNewDocument(

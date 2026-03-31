@@ -395,8 +395,6 @@ func (h *Handler) HLSProxyV2(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	// 1. Указываем целевой URL (куда реально шлем запрос)
-	// targetURL := "https://kmf.kz"
 
 	// 2. Создаем новый запрос к целевому серверу
 	proxyReq, err := http.NewRequest(r.Method, targetURL, nil)
@@ -413,9 +411,8 @@ func (h *Handler) HLSProxyV2(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 4. ПЕРЕЗАПИСЫВАЕМ критические заголовки
-	proxyReq.Header.Set("Origin", theatreBase)
-	proxyReq.Header.Set("Referer", theatreBase)
-	proxyReq.Header.Set("User-Agent", hlsUserAgent)
+	proxyReq.Header.Set("Origin", "https://theatre.stloadi.live")
+	// proxyReq.Header.Set("Referer", "http://localhost:8080/api/series/861614/player?token_movie=4f942c2ef97f5097b4690e45316e0a&season=1&episode=1&token=45e20a5f584becf7a64dffb7174ddf")
 
 	// 5. Отправляем запрос
 	client := &http.Client{}
@@ -1142,7 +1139,7 @@ func playerPostMessageScript() string {
 	  // достаем с localStorage
 	  try {
 	  	const url = new URL(window.location.href);
-	  	const parsedData = JSON.parse(localStorage.getItem(url.searchParams.get('token_movie')));
+	  	const parsedData = JSON.parse(localStorage.getItem('save-' + url.searchParams.get('token_movie')));
 		data.serial = parsedData.serial
 	  } catch {}
       // Перевод — кнопка в шапке плеера (рядом с Сезон/Серия), исключаем контролы и служебные
