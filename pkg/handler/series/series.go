@@ -359,6 +359,7 @@ func (h *Handler) HLSProxy(w http.ResponseWriter, r *http.Request) {
 		req.Header.Set("Sec-Fetch-Dest", "empty")
 		req.Header.Set("Sec-Fetch-Mode", "cors")
 		req.Header.Set("Sec-Fetch-Site", "cross-site")
+		req.Header.Set("Authorization", "Bearer pXzvbyDGLYyB6VkwsWZDv3iMKZtsXNzpzRyxZUcsKHXxsSeaYakbo3hw9mBFRc5VQTpqAX6BW8aDEqyLaHYcXSQiV6KHYTVTK6MYRphNAy5sBjtrevqkDzKmLqNdfMZGEU9NELjmtKfZy3RNGzCd767sNh1mXEj4tCcvqndHtzmwAbZNkhm4ghDEasodotMBewypNQ56uotJAQGX11csfeRfBAPk8DcUWWkkqzxca8vbnEw12vUFbBzT6hz8ZB3F3dzUhUXoL2cr1WM1bXQArRCS1MUNMz3X5WDMMQoZKxj2AMTRqp7QQX4dDB9B7VzEZTmyFULhm1AcHHMkoMvSVvKYoBoAKLycYAgMHeD4ECJcGEAGpnkJhrV57zQ7")
 		resp, doErr := cdnClient.Do(req)
 		if doErr != nil {
 			w.WriteHeader(http.StatusBadGateway)
@@ -379,12 +380,71 @@ func (h *Handler) HLSProxy(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	// Для .m3u8 переписываем relative URLs на абсолютные
+	// Для .m3u8 переписываем все URLs через наш прокси
 	if strings.Contains(rawURL, ".m3u8") {
-		body = rewriteM3U8Absolute(body, rawURL)
+		body = rewriteM3U8ThroughProxy(body, rawURL)
 	}
 
 	w.Write(body) //nolint:errcheck
+}
+
+func (h *Handler) HLSProxyV2(w http.ResponseWriter, r *http.Request) {
+	targetURL := r.URL.Query().Get("url")
+	if targetURL == "" || !strings.HasPrefix(targetURL, "https://") {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	// 1. Указываем целевой URL (куда реально шлем запрос)
+	// targetURL := "https://kmf.kz"
+
+	// 2. Создаем новый запрос к целевому серверу
+	proxyReq, err := http.NewRequest(r.Method, targetURL, r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// 3. Копируем заголовки из оригинального запроса (если нужно)
+	for name, values := range r.Header {
+		for _, value := range values {
+			proxyReq.Header.Add(name, value)
+		}
+	}
+
+	// 4. ПЕРЕЗАПИСЫВАЕМ критические заголовки
+	proxyReq.Header.Set("Origin", theatreBase)
+	proxyReq.Header.Set("Referer", theatreBase)
+	proxyReq.Header.Set("User-Agent", hlsUserAgent)
+
+	// 5. Отправляем запрос
+	client := &http.Client{}
+	resp, err := client.Do(proxyReq)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+
+	// 6. Добавляем CORS-заголовки, чтобы ваш браузер (localhost) принял ответ
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
+	w.Header().Set("Access-Control-Allow-Headers", "*")
+
+	// Если это preflight-запрос OPTIONS, просто отвечаем OK
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// 7. Копируем ответ от сервера обратно в браузер
+	for name, values := range resp.Header {
+		for _, value := range values {
+			w.Header().Add(name, value)
+		}
+	}
+
+	w.WriteHeader(resp.StatusCode)
+	io.Copy(w, resp.Body)
 }
 
 // rewriteM3U8Absolute заменяет relative URLs в M3U8 плейлисте на абсолютные CDN URLs.
@@ -444,6 +504,52 @@ func rewriteURIAttrs(content string, base *url.URL) string {
 			}
 		}
 		sb.WriteString(uri)
+		i += end
+	}
+	return sb.String()
+}
+
+// rewriteM3U8ThroughProxy делает все URL в m3u8 абсолютными, затем оборачивает их
+// в /api/hls-proxy?url=... чтобы HLS.js не шёл напрямую на CDN (CORS-блок).
+func rewriteM3U8ThroughProxy(content []byte, baseURL string) []byte {
+	// Сначала делаем все URL абсолютными
+	absolute := rewriteM3U8Absolute(content, baseURL)
+
+	lines := strings.Split(string(absolute), "\n")
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		if strings.HasPrefix(trimmed, "https://") {
+			lines[i] = "/api/hls-proxy?url=" + url.QueryEscape(trimmed)
+		}
+	}
+	result := strings.Join(lines, "\n")
+	// URI="https://..." атрибуты тоже оборачиваем
+	result = rewriteURIAttrsThroughProxy(result)
+	return []byte(result)
+}
+
+// rewriteURIAttrsThroughProxy оборачивает URI="https://..." через /api/hls-proxy.
+func rewriteURIAttrsThroughProxy(content string) string {
+	var sb strings.Builder
+	i := 0
+	for i < len(content) {
+		idx := strings.Index(content[i:], `URI="https://`)
+		if idx < 0 {
+			sb.WriteString(content[i:])
+			break
+		}
+		sb.WriteString(content[i : i+idx+5]) // до URI="
+		i += idx + 5
+		end := strings.Index(content[i:], `"`)
+		if end < 0 {
+			sb.WriteString(content[i:])
+			break
+		}
+		uri := content[i : i+end]
+		sb.WriteString("/api/hls-proxy?url=" + url.QueryEscape(uri))
 		i += end
 	}
 	return sb.String()
@@ -634,7 +740,8 @@ func (h *Handler) ResolveV2(w http.ResponseWriter, r *http.Request) {
 <script>
 window.addEventListener('message', function(e) {
   if (!e.data || e.data.type !== 'theatre-progress') return;
-  console.log('theatre-progress:', JSON.stringify(e.data));
+  //   console.log('theatre-progress:', JSON.stringify(e.data));
+  console.log('theatre-progress:', e.data);
   // e.data: { type, season, episode, translation, currentTime, duration, paused }
   // TODO: отправлять на /api/progress
 });
@@ -708,7 +815,7 @@ func patchPlayerHTML(html string, params url.Values) string {
 	// html = strings.Replace(html, "if(!isFramed){document.querySelectorAll('html')[0].innerHTML=", "if(false){document.querySelectorAll('html')[0].innerHTML=", 1)
 
 	// base href для static assets
-	html = strings.Replace(html, "<head>", `<head><base href="/api/theatre-static/">`, 1)
+	// html = strings.Replace(html, "<head>", `<head><base href="/api/theatre-static/">`, 1)
 
 	// // Переписываем relative ./js/ пути
 	html = strings.ReplaceAll(html, `"./js/`, `"/api/theatre-static/js/`)
@@ -727,12 +834,18 @@ func patchPlayerHTML(html string, params url.Values) string {
 	// html = strings.ReplaceAll(html, "blob:__THEATRE_BLOB__", "blob:https://theatre.stloadi.live/")
 
 	// Инжектируем скрипты сразу после <base>
-	// scripts := playerInterceptorScript() + playerPostMessageScript()
+	scripts := playerInterceptorScript() + playerPostMessageScript()
 	// html = strings.Replace(html,
 	// 	`<base href="/api/theatre-static/">`,
 	// 	`<base href="/api/theatre-static/">`+scripts,
 	// 	1,
 	// )
+
+	html = strings.Replace(html,
+		`<head>`,
+		`<head>`+scripts,
+		1,
+	)
 
 	return html
 }
@@ -744,7 +857,7 @@ func playerInterceptorScript() string {
 	return `<script>
 Object.defineProperty(window,'isFramed',{value:true,writable:false,configurable:false});
 (function(){
-  var H='/api/hls-proxy?url=';
+  var H='/api/hls-proxyV2?url=';
   var THEATRE='https://theatre.stloadi.live';
   var _hlsInstance=null;
 
@@ -793,8 +906,9 @@ Object.defineProperty(window,'isFramed',{value:true,writable:false,configurable:
   }
 
   // Перехват fetch: /bnsi/ → наш stream endpoint через chromedp
-  var _f=window.fetch;
-  window.fetch=function(input,init){
+  // уже не надо перехватывать, оно перехватывается через бек ("POST /bnsi/", seriesHandler.BNSIProxy)
+  const _f=window.fetch;
+  window.fetch_backup = function(input,init){
     var u = (typeof input === 'string') ? input : (input && input.url) || '';
     // /bnsi/ запросы → резолвим через chromedp
     if(typeof u === 'string' && (u.indexOf('/bnsi/') === 0 || u.indexOf(THEATRE + '/bnsi/') === 0)){
@@ -856,11 +970,49 @@ Object.defineProperty(window,'isFramed',{value:true,writable:false,configurable:
     return _o.apply(this,arguments);
   };
   XMLHttpRequest.prototype.send=function(body){
-    var url = this._interceptedURL || '';
-    if(typeof url === 'string' && (url.indexOf('/bnsi/') === 0 || url.indexOf(THEATRE+'/bnsi/') === 0)){
-      console.log('[interceptor] XHR /bnsi/ intercepted, resolving via chromedp...');
-      var qs=window.location.search || '';
-      var self=this;
+    const url = this._interceptedURL || '';
+
+	const data = {type: 'theatre-progress'};
+	data.url = url
+	data.body = body
+    window.parent.postMessage(data,'*');
+
+	if(typeof url !== 'string') return _s.apply(this,arguments);
+
+	if(!url.includes('?url=') && url.includes('.m3u8')) { 
+		// почему то на master.m3u8 делается полноценный запрос
+		// а на index-f1-v1 относительны и не понятно как оно работает в оригинале хз
+		// поэтому сохраним урл от мастера
+		if(url.includes('master.m3u8')) {
+			window.baseMasterUrl = url.replace('master.m3u8', '')
+		}
+		var self = this;
+		const resultUrl = url.startsWith('https://') ? H + url : H + window.baseMasterUrl + url;
+		fetch(resultUrl)
+			.then(r => r.text())
+			.then(text => {
+				Object.defineProperty(self, 'readyState', {get: function(){ return 4; }, configurable: true});
+				Object.defineProperty(self, 'status', {get: function(){ return 200; }, configurable: true});
+				Object.defineProperty(self, 'responseText', {get: function(){ return text; }, configurable: true});
+				Object.defineProperty(self, 'response', {get: function(){ return text; }, configurable: true});
+				if(typeof self.onreadystatechange === 'function') self.onreadystatechange();
+				if(typeof self.onload === 'function') self.onload();
+			})
+			.catch(() => {});
+		return;
+	}
+
+	return _s.apply(this,arguments);
+  }
+})();
+</script>`
+}
+
+func oldInterceptorXhr() string {
+	return `
+	if(url.indexOf('/bnsi/') === 0 || url.indexOf(THEATRE+'/bnsi/') === 0){
+      const qs=window.location.search || '';
+      const self=this;
         fetch('/api/series/stream'+qs)
         .then(function(r){return r.json();})
         .then(function(data){
@@ -878,11 +1030,7 @@ Object.defineProperty(window,'isFramed',{value:true,writable:false,configurable:
         })
         .catch(function(err){console.error('[interceptor] XHR stream failed:', err);});
       return;
-    }
-    return _s.apply(this,arguments);
-  };
-})();
-</script>`
+    }`
 }
 
 // Stream использует chromedp для загрузки theatre страницы и возвращает все данные.
@@ -925,8 +1073,14 @@ func playerPostMessageScript() string {
     btns.forEach(function(b){
       var txt=b.textContent.trim();
       // Определяем по тексту кнопки
-      if(/^Сезон\s+\d+/.test(txt)) data.season=txt.replace('Сезон ','');
-      if(/^Серия\s+\d+/.test(txt)) data.episode=txt.replace('Серия ','');
+      //   if(/^Сезон\s+\d+/.test(txt)) data.season=txt.replace('Сезон ','');
+      //   if(/^Серия\s+\d+/.test(txt)) data.episode=txt.replace('Серия ','');
+	  // достаем с localStorage
+	  try {
+	  	const url = new URL(window.location.href);
+	  	const parsedData = JSON.parse(localStorage.getItem(url.searchParams.get('token_movie')));
+		data.serial = parsedData.serial
+	  } catch {}
       // Перевод — кнопка в шапке плеера (рядом с Сезон/Серия), исключаем контролы и служебные
       if(b.closest&&!b.closest('[class*="control"]')&&!/Сезон|Серия|Воспроизвести|Предыдущая|Следующая|Настройки|PIP|Полноэкранный|Выключить|Пауза|Отправить|space|stat/.test(txt)&&txt.length>1&&txt.length<30){
         data.translation=txt;

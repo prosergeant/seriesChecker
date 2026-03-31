@@ -105,7 +105,8 @@ func main() {
 	mux.HandleFunc("GET /api/series/{id}/player", seriesHandler.Player)
 	mux.HandleFunc("GET /api/series/stream", seriesHandler.Stream)
 	mux.HandleFunc("GET /api/hls-proxy", seriesHandler.HLSProxy)
-	mux.HandleFunc("/api/theatre-proxy", seriesHandler.TheatreProxy)
+	mux.HandleFunc("GET /api/hls-proxyV2", seriesHandler.HLSProxyV2)
+	// mux.HandleFunc("/api/theatre-proxy", seriesHandler.TheatreProxy)
 	mux.HandleFunc("GET /api/theatre-static/", seriesHandler.TheatreStatic)
 	// Catch-all для абсолютных путей из JS плеера (/images/, /build/, /js/, /bnsi/)
 	// которые мы не можем переписать (хардкод в минифицированном JS)
@@ -120,6 +121,11 @@ func main() {
 	mux.Handle("GET /api/progress", protected(http.HandlerFunc(progressHandler.GetList)))
 	mux.Handle("POST /api/progress", protected(http.HandlerFunc(progressHandler.Update)))
 	mux.Handle("DELETE /api/progress/{seriesId}", protected(http.HandlerFunc(progressHandler.Delete)))
+
+	mux.HandleFunc("POST /stat", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"status":"success"}`))
+	})
 
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -145,7 +151,7 @@ func main() {
 	mainHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 
-		if strings.HasPrefix(path, "/api/") || path == "/health" ||
+		if strings.HasPrefix(path, "/api/") || path == "/health" || path == "/stat" ||
 			strings.HasPrefix(path, "/images/") || strings.HasPrefix(path, "/build/") ||
 			strings.HasPrefix(path, "/js/") || strings.HasPrefix(path, "/bnsi/") {
 			apiHandler.ServeHTTP(w, r)

@@ -36,6 +36,8 @@ type Resolver struct {
 	streamMu     sync.Mutex
 	streamCtx    context.Context // живой chromedp-контекст с CDN-сессией (nil если нет)
 	streamCancel context.CancelFunc
+
+	fetchMu sync.Mutex // сериализует concurrent FetchCDNURL вызовы (chromedp не поддерживает параллельный Evaluate)
 }
 
 func New() *Resolver {
@@ -554,6 +556,9 @@ func (r *Resolver) FetchCDNURL(url string) ([]byte, string, error) {
     b64+=btoa(String.fromCharCode.apply(null,arr.subarray(i,Math.min(i+C,arr.length))));
   return ct+'\n'+b64;
 })()`, url)
+
+	r.fetchMu.Lock()
+	defer r.fetchMu.Unlock()
 
 	fetchCtx, cancel := context.WithTimeout(sessCtx, 30*time.Second)
 	defer cancel()
