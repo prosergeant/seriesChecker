@@ -12,7 +12,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "SeriesTracker",
+  title: "Series Checker",
   description: "Track your favorite TV series",
 };
 
