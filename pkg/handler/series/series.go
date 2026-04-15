@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -25,6 +26,10 @@ import (
 // ForceAttemptHTTP2 не работает с custom DialTLS, поэтому пробуем h2 через ALPN,
 // а при fallback используем HTTP/1.1.
 var chromeClient = newChromeClient()
+
+// sriAttrRe удаляет атрибут integrity="..." из тегов — SRI требует CORS,
+// которого у проксируемых сайтов нет, поэтому браузер блокирует ресурсы.
+var sriAttrRe = regexp.MustCompile(`\s+integrity="[^"]*"`)
 
 func newChromeClient() *http.Client {
 	transport := &http.Transport{
@@ -865,4 +870,112 @@ func (h *Handler) Players(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.StatusCode)
 	w.Write(body)
+}
+
+// FullProxy проксирует запрос на произвольный URL (параметр ?url=...).
+// Fetch выполняется на сервере — редиректы следуются серверно, не передаются клиенту.
+// Для HTML-ответов инжектирует postMessage-скрипт и удаляет CSP/X-Frame-Options.
+// GET /api/series/full-proxy?url=https://...
+func (h *Handler) FullProxy(w http.ResponseWriter, r *http.Request) {
+	rawURL := r.URL.Query().Get("url")
+	if rawURL == "" {
+		http.Error(w, "missing url parameter", http.StatusBadRequest)
+		return
+	}
+
+	if _, err := url.Parse(rawURL); err != nil {
+		http.Error(w, "invalid url parameter", http.StatusBadRequest)
+		return
+	}
+
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, rawURL, nil)
+	if err != nil {
+		http.Error(w, "failed to build request", http.StatusBadRequest)
+		return
+	}
+	req.Header.Set("User-Agent", hlsUserAgent)
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7")
+	req.Header.Set("Sec-Fetch-Dest", "iframe")
+	req.Header.Set("Sec-Fetch-Mode", "navigate")
+	req.Header.Set("Sec-Fetch-Site", "cross-site")
+	req.Header.Set("Upgrade-Insecure-Requests", "1")
+
+	// Ставим Referer равным origin целевого URL (self-referencing).
+	// Theatre и аналогичные сайты проверяют, что запрос пришёл с их же домена.
+	// Клиентский Referer (localhost) намеренно игнорируем.
+	{
+		parsed, _ := url.Parse(rawURL)
+		req.Header.Set("Referer", parsed.Scheme+"://"+parsed.Host+"/")
+	}
+
+	// chromeClient следует редиректам серверно
+	resp, err := chromeClient.Do(req)
+	if err != nil {
+		log.Printf("FullProxy: fetch error: %v", err)
+		http.Error(w, "upstream fetch failed", http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		http.Error(w, "failed to read upstream response", http.StatusBadGateway)
+		return
+	}
+
+	// Копируем заголовки ответа, кроме тех что блокируют iframe/скрипты
+	for key, vals := range resp.Header {
+		switch strings.ToLower(key) {
+		case "content-security-policy", "x-frame-options", "content-length":
+			// пропускаем
+		default:
+			for _, v := range vals {
+				w.Header().Add(key, v)
+			}
+		}
+	}
+
+	contentType := resp.Header.Get("Content-Type")
+	if strings.Contains(contentType, "text/html") {
+		parsed, _ := url.Parse(rawURL)
+		origin := parsed.Scheme + "://" + parsed.Host
+
+		// <base href> — все относительные URL (./js/, /build/, /images/) резолвятся
+		// прямо на оригинальный сайт, не через наш прокси.
+		// isFramed=true — блокируем проверку "не в iframe", которая удаляет контент.
+		// Оба тега инжектируем в начало <head>, до любых скриптов сайта.
+		injection := `<base href="` + origin + `/"><script>` +
+			`Object.defineProperty(window,'isFramed',{value:true,writable:false,configurable:false});` +
+			// Перехватываем XHR и fetch на origin сайта — редиректим через /api/theatre-proxy,
+			// иначе браузер блокирует их по CORS (запрос идёт с localhost, а сайт не шлёт ACAO).
+			`(function(){` +
+			`var _o=XMLHttpRequest.prototype.open;` +
+			`XMLHttpRequest.prototype.open=function(m,u){` +
+			`if(typeof u==='string'&&u.startsWith('` + origin + `')){u='/api/theatre-proxy?url='+encodeURIComponent(u);}` +
+			`return _o.call(this,m,u);};` +
+			// fetch может получить как строку, так и объект Request — обрабатываем оба случая.
+			`var _f=window.fetch;` +
+			`window.fetch=function(u,opts){` +
+			`if(u instanceof Request){` +
+			`var ru=u.url;` +
+			`if(ru.startsWith('` + origin + `')){u=new Request('/api/theatre-proxy?url='+encodeURIComponent(ru),u);}` +
+			`}else{` +
+			`var us=typeof u==='string'?u:String(u);` +
+			`if(us.startsWith('` + origin + `')){u='/api/theatre-proxy?url='+encodeURIComponent(us);}` +
+			`}` +
+			`return _f.call(window,u,opts);};` +
+			`})();` +
+			`</script>`
+		stripped := sriAttrRe.ReplaceAllString(string(body), "")
+		modified := strings.Replace(stripped, "<head>", "<head>"+injection, 1)
+		w.Header().Set("Content-Length", strconv.Itoa(len(modified)))
+		w.WriteHeader(resp.StatusCode)
+		fmt.Fprint(w, modified)
+		return
+	}
+
+	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+	w.WriteHeader(resp.StatusCode)
+	w.Write(body) //nolint:errcheck
 }

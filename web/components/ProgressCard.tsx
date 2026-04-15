@@ -43,13 +43,13 @@ export function ProgressCard({
   onUpdate: (data: UpdateProgressRequest) => void;
   onDelete: () => void;
 }) {
+  const baseUrlPlayer = `${API_URL}/api/series/${item.kinopoisk_id}/resolveV2`;
+
   const [isEditing, setIsEditing] = useState(false);
   const [season, setSeason] = useState(item.current_season);
   const [episode, setEpisode] = useState(item.current_episode);
   const [isWatchModalOpen, setIsWatchModalOpen] = useState(false);
-  const [watchUrl, setWatchUrl] = useState(
-    `${API_URL}/api/series/${item.kinopoisk_id}/resolveV2`,
-  );
+  const [watchUrl, setWatchUrl] = useState(baseUrlPlayer);
 
   const statusInfo = STATUS_LABELS[item.status] || {
     label: item.status,
@@ -67,15 +67,19 @@ export function ProgressCard({
   };
 
   const openPlayerModal = async () => {
-    const players = await api.players.getPlayers(item.kinopoisk_id);
-    const alloha = players?.data?.find((el) => el.type === "Alloha");
-    if (alloha) {
-      const url = new URL(alloha.iframeUrl);
-      if (url.search) {
-        setWatchUrl(watchUrl + url.search);
+    // const players = await api.players.getPlayers(item.kinopoisk_id);
+    // const alloha = players?.data?.find((el) => el.type === "Alloha");
+    // if (alloha) {
+    //   const url = new URL(alloha.iframeUrl);
+    //   if (url.search) {
+    //     setWatchUrl(baseUrlPlayer + url.search);
+    //     setIsWatchModalOpen(true);
+    //   }
+    // }
+        setWatchUrl(`${API_URL}/api/series/full-proxy?url=${encodeURIComponent('https://theatre.stloadi.live/?token_movie=4f942c2ef97f5097b4690e45316e0a&token=45e20a5f584becf7a64dffb7174ddf')}`);
         setIsWatchModalOpen(true);
-      }
-    }
+
+    
   };
 
   const goToPreview = () => {

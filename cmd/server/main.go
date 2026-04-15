@@ -111,6 +111,7 @@ func main() {
 	mux.HandleFunc("GET /images/", seriesHandler.TheatreStatic)
 	mux.HandleFunc("GET /build/", seriesHandler.TheatreStatic)
 	mux.HandleFunc("GET /js/", seriesHandler.TheatreStatic)
+	mux.HandleFunc("GET /series/js/", seriesHandler.TheatreStatic)
 	mux.HandleFunc("POST /bnsi/", seriesHandler.BNSIProxy)
 
 	mux.Handle("GET /api/progress", protected(http.HandlerFunc(progressHandler.GetList)))

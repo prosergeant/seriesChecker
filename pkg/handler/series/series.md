@@ -43,5 +43,8 @@ HTTP-клиент с TLS fingerprint Chrome через utls. Нужен для T
 - `injectProxyInterceptor()` — был частью старого V2 подхода с fetch/XHR перехватом, заменён на iframe
 - `sessionEntry`, `proxySessions`, `genSessionID()`, `getSessionCookies()` — управление cookie-сессиями для старого proxy подхода, сейчас используется только в TheatreProxy (session query param)
 
+### FullProxy (обновлён)
+Добавлены iframe-специфичные заголовки (`Sec-Fetch-Dest: iframe`, `Sec-Fetch-Mode: navigate`, `Sec-Fetch-Site: cross-site`, `Referer`, `Accept`, `Accept-Language`). Без них сайты с проверкой на iframe-окружение возвращают фейковый 404.
+
 ## Роутинг в main.go
 `/images/`, `/build/`, `/js/`, `/bnsi/` (GET+POST) маршрутизируются в apiHandler (а не в Next.js прокси) для поддержки catch-all абсолютных путей из JS плеера.
