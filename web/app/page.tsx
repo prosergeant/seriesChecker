@@ -87,6 +87,7 @@ function HomeContent() {
   const [, setSelectedSeries] =
     useState<SeriesSearchResult | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("");
+  const [mutatingIds, setMutatingIds] = useState<Set<number>>(new Set());
   const queryClient = useQueryClient();
   const { user, logout } = useAuth();
   const router = useRouter();
@@ -118,17 +119,43 @@ function HomeContent() {
 
   const updateMutation = useMutation({
     mutationFn: (data: UpdateProgressRequest) => api.progress.update(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["progress"] });
+    onMutate: (data) => {
+      setMutatingIds((prev) => new Set([...prev, data.series_id]));
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["progress"] });
       toast.success("Обновлено");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+    onSettled: (_, __, data) => {
+      setMutatingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(data.series_id);
+        return next;
+      });
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (seriesId: number) => api.progress.delete(seriesId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["progress"] });
+    onMutate: (seriesId) => {
+      setMutatingIds((prev) => new Set([...prev, seriesId]));
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["progress"] });
       toast.success("Удалено");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+    onSettled: (_, __, seriesId) => {
+      setMutatingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(seriesId);
+        return next;
+      });
     },
   });
 
@@ -244,6 +271,7 @@ function HomeContent() {
               <ProgressCard
                 key={item.series_id}
                 item={item}
+                isLoading={mutatingIds.has(item.series_id)}
                 onUpdate={(data) => updateMutation.mutate(data)}
                 onDelete={() => deleteMutation.mutate(item.series_id)}
               />

@@ -22,6 +22,11 @@
 ### `HomeContent`
 Основной layout страницы: header с email/logout, поиск с автодополнением, фильтры по статусу, сетка карточек.
 
+## Изменения (2026-04-17)
+- Добавлено состояние `mutatingIds: Set<number>` для отслеживания карточек, по которым выполняется мутация (update/delete).
+- `updateMutation` и `deleteMutation` расширены: `onMutate` добавляет `series_id` в `mutatingIds`; `onSuccess` (с `await` для invalidateQueries, чтобы дождаться рефетча) и `onError` удаляют его из `mutatingIds`. Это гарантирует, что спиннер виден до завершения GET-рефетча, а не только до ответа мутации.
+- `ProgressCard` получает `isLoading={mutatingIds.has(item.series_id)}`, активируя оверлей загрузки и блокировку элементов управления на время мутации + рефетча.
+
 ## Изменения (2026-03-21)
 - `handleSave` теперь всегда устанавливает `status: "watching"` при сохранении сезона/серии
 - Ключ `ProgressCard` изменён с `progress-${series_id}-${index}` на `item.id` (ошибочно), затем на `item.series_id` — финальный фикс: бекенд не заполняет `id` в `GetListByStatus`, поэтому у всех карточек был ключ `0` → дубликаты → ремаунт → сброс модалки

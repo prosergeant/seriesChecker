@@ -27,10 +27,12 @@ export function ProgressCard({
   item,
   onUpdate,
   onDelete,
+  isLoading = false,
 }: {
   item: ProgressItem;
   onUpdate: (data: UpdateProgressRequest) => void;
   onDelete: () => void;
+  isLoading?: boolean;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [season, setSeason] = useState(item.current_season);
@@ -54,7 +56,15 @@ export function ProgressCard({
   };
 
   return (
-    <div className="bg-card rounded-2xl flex flex-row overflow-hidden border border-border shadow-sm hover:shadow-md transition-shadow">
+    <div className="relative bg-card rounded-2xl flex flex-row overflow-hidden border border-border shadow-sm hover:shadow-md transition-shadow">
+      {isLoading && (
+        <div
+          data-testid="progress-card-loading"
+          className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 rounded-2xl"
+        >
+          <div className="w-7 h-7 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      )}
       <PosterImage
         src={item.poster_url}
         alt={item.title}
@@ -66,7 +76,10 @@ export function ProgressCard({
             {item.title}
           </h3>
           <DropdownMenu>
-            <DropdownMenuTrigger className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 whitespace-nowrap hover:bg-emerald-500/30 transition-colors cursor-pointer outline-none">
+            <DropdownMenuTrigger
+              disabled={isLoading}
+              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 whitespace-nowrap hover:bg-emerald-500/30 transition-colors cursor-pointer outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span>
               {statusInfo.label}
             </DropdownMenuTrigger>
@@ -108,7 +121,8 @@ export function ProgressCard({
               <span className="text-sm text-muted-foreground">эпизод</span>
               <button
                 onClick={handleSave}
-                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-full"
+                disabled={isLoading}
+                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Сохранить
               </button>
@@ -170,7 +184,8 @@ export function ProgressCard({
           />
           <button
             onClick={onDelete}
-            className="inline-flex items-center justify-center text-muted-foreground hover:text-destructive bg-transparent hover:bg-destructive/10 p-2 rounded-full transition-colors"
+            disabled={isLoading}
+            className="inline-flex items-center justify-center text-muted-foreground hover:text-destructive bg-transparent hover:bg-destructive/10 p-2 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             title="Удалить"
           >
             <svg

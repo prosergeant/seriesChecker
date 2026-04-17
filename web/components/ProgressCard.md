@@ -34,3 +34,20 @@ ProgressCard displays a user's series/movie progress in a card layout. It shows 
 ### Testing
 - Build: Compiled successfully with no TypeScript errors
 - Unit tests: All 22 tests pass
+
+## Recent Changes (feat: add isLoading overlay to ProgressCard)
+
+### What Changed
+- **Added `isLoading?: boolean` prop** (default `false`) to the component's props destructuring
+- **Added semi-transparent spinner overlay**: When `isLoading=true`, renders an absolute-positioned div (`data-testid="progress-card-loading"`) with a spinning indicator covering the entire card
+- **Disabled delete button when loading**: Added `disabled={isLoading}` to the trash button plus `disabled:opacity-50 disabled:cursor-not-allowed` CSS classes
+- **Added `relative` positioning** to the outer card div to anchor the overlay
+
+### Why This Change
+- Provides visual feedback to the user while async operations (delete, update) are in progress
+- Prevents double-clicks on the delete button during a pending request
+- Part of Task 1 in a two-task feature to make progress mutations feel responsive
+
+### Testing
+- Unit tests added in `ProgressCard.test.tsx` (4 tests, TDD approach)
+- All 27 tests pass across the test suite

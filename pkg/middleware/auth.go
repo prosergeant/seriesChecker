@@ -56,7 +56,6 @@ func GetUserID(ctx context.Context) (uuid.UUID, bool) {
 	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
 		return uuid.Nil, ok
-
 	}
 
 	return userID, ok
