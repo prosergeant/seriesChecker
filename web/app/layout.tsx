@@ -4,11 +4,12 @@ import "./globals.css";
 import { Providers } from "@/components/providers";
 import { AuthProvider } from "@/components/auth-context";
 import { Toaster } from "@/components/ui/sonner";
+import { Analytics } from "@vercel/analytics/next";
 
 const inter = Inter({
   variable: "--font-sans",
   subsets: ["latin"],
-  display: 'swap',
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -23,9 +24,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru" suppressHydrationWarning>
-      <body
-        className={`${inter.variable} antialiased font-sans`}
-      >
+      <body className={`${inter.variable} antialiased font-sans`}>
+        <Analytics />
         <Providers>
           <AuthProvider>
             {children}
